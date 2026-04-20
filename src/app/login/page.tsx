@@ -9,19 +9,7 @@ export default function LoginPage() {
   const handleGoogleLogin = async () => {
     setIsLoading(true)
 
-      // Debug: print env values and supabase client shape to console
-      // so we can confirm the SDK has the right configuration at runtime.
-      try {
-        // These logs are safe - don't print service-role keys here.
-        // eslint-disable-next-line no-console
-        console.log('NEXT_PUBLIC_SUPABASE_URL=', process.env.NEXT_PUBLIC_SUPABASE_URL)
-        // eslint-disable-next-line no-console
-        console.log('NEXT_PUBLIC_SUPABASE_ANON_KEY present=', !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-        // eslint-disable-next-line no-console
-        console.log('supabase client auth methods:', typeof supabase?.auth)
-      } catch (e) {
-        // ignore
-      }
+      // Removed debug logs to avoid leaking environment values to the client console.
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',

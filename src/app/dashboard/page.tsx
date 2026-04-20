@@ -5,13 +5,15 @@ import LogoutButton from '@/components/dashboard/logout-button'
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
-  const { data } = await supabase.auth.getSession()
 
-  if (!data?.session) {
+  // ✅ getUser() validates the token with Supabase Auth servers — secure
+  // ❌ getSession() only reads from the cookie without server validation
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (!user || error) {
     redirect('/login')
   }
 
-  const user = data.session.user
   const fullName = user.user_metadata?.full_name as string | undefined
   const email = user.email ?? ''
 
