@@ -1,7 +1,9 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import LogoutButton from '@/components/dashboard/logout-button'
+import { UserMenu } from '@/components/dashboard/user-menu'
+import { AddEquipmentDialog } from '@/components/dashboard/add-equipment-dialog'
+import { ItemsTable } from '@/components/dashboard/items-table'
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
@@ -16,6 +18,8 @@ export default async function DashboardPage() {
 
   const fullName = user.user_metadata?.full_name as string | undefined
   const email = user.email ?? ''
+  // Extract the Google avatar URL from metadata
+  const avatarUrl = user.user_metadata?.avatar_url as string | undefined
 
   const initials = fullName
     ? fullName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
@@ -47,20 +51,13 @@ export default async function DashboardPage() {
               className="hidden md:block bg-white/5 border border-white/10 rounded-full px-6 py-2.5 min-w-[250px] focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-white placeholder:text-gray-500 text-sm"
             />
 
-            {/* Avatar + logout */}
-            <div className="flex items-center gap-3">
-              <div className="relative group">
-                <div className="w-12 h-12 rounded-full border border-white/20 bg-white/5 flex items-center justify-center text-sm font-medium select-none">
-                  {initials}
-                </div>
-                {/* Hover tooltip */}
-                <div className="absolute right-0 top-14 bg-[#13172e] border border-white/10 rounded-2xl px-4 py-3 text-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                  <p className="text-white font-medium">{fullName ?? email}</p>
-                  {fullName && <p className="text-gray-500 text-xs mt-0.5">{email}</p>}
-                </div>
-              </div>
-              <LogoutButton />
-            </div>
+            {/* Replaced manual avatar and logout with the UserMenu component */}
+            <UserMenu
+              initials={initials}
+              fullName={fullName}
+              email={email}
+              avatarUrl={avatarUrl}
+            />
           </div>
         </div>
       </nav>
@@ -71,9 +68,9 @@ export default async function DashboardPage() {
             <h1 className="text-[3rem] leading-tight font-medium tracking-tight mb-2">System Overview</h1>
             <p className="text-gray-400 text-xl font-light">Real-time status of all laboratory assets.</p>
           </div>
-          <button className="px-10 py-4 rounded-full bg-white text-[#0a0d27] hover:bg-gray-200 transition-all font-medium text-lg whitespace-nowrap">
-            Add Equipment
-          </button>
+
+          {/* Wrapped the Add Equipment button with the Dialog Component */}
+          <AddEquipmentDialog />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -107,13 +104,17 @@ export default async function DashboardPage() {
         <div className="rounded-[2rem] border border-white/10 bg-white/5 overflow-hidden flex flex-col mt-4">
           <div className="px-10 py-8 border-b border-white/10 flex items-center justify-between">
             <h2 className="text-2xl font-medium tracking-tight">Recent Activity</h2>
-            <button className="text-gray-400 hover:text-white font-medium text-base transition-colors">
-              View All Logs &rarr;
-            </button>
+
+            {/* Added Link wrapper here so the button routes to history */}
+            <Link href="/dashboard/history">
+              <button className="text-gray-400 hover:text-white font-medium text-base transition-colors">
+                View All Logs &rarr;
+              </button>
+            </Link>
           </div>
-          <div className="p-10 text-center text-gray-500 py-40 flex flex-col items-center justify-center">
-            <p className="text-xl font-light">Items Table Component renders here</p>
-          </div>
+
+          {/* Render the actual table instead of the placeholder text */}
+          <ItemsTable />
         </div>
       </main>
     </div>
