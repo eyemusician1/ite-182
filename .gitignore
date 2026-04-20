@@ -39,3 +39,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Project-specific
+.env.local
+.env.*.local
+prisma/migrations/
+.DS_Store
+Thumbs.db
+
+# Project-specific
+.env.local
+.env.*.local
+prisma/migrations/
+.DS_Store
+Thumbs.db
