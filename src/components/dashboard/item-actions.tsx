@@ -3,17 +3,10 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-type DbItem = {
-  id: string
-  name: string
-  category: string
-  status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE'
-  created_at?: string
-}
-
-export function ItemActions({ item }: { item: DbItem }) {
+export function ItemActions({ item }: { item: any }) {
   const router = useRouter()
   const [isEditOpen, setIsEditOpen] = useState(false)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false) // New state for custom delete modal
   const [isLoading, setIsLoading] = useState(false)
 
   const [name, setName] = useState(item.name)
@@ -41,15 +34,17 @@ export function ItemActions({ item }: { item: DbItem }) {
   }
 
   const handleDelete = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${item.name}? This cannot be undone.`)) return
-
+    setIsLoading(true)
     const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+
     if (res.ok) {
+      setIsDeleteOpen(false)
       router.refresh()
     } else {
       const { error } = await res.json()
       alert(`Delete failed: ${error}`)
     }
+    setIsLoading(false)
   }
 
   return (
@@ -61,30 +56,24 @@ export function ItemActions({ item }: { item: DbItem }) {
         Edit
       </button>
       <button
-        onClick={handleDelete}
+        onClick={() => setIsDeleteOpen(true)} // Open the custom modal instead
         className="text-red-400/70 hover:text-red-400 transition-colors text-sm font-medium tracking-wide"
       >
         Delete
       </button>
 
-      {/* Redesigned Modal Overlay */}
+      {/* --- EDIT MODAL --- */}
       {isEditOpen && (
-        <div className="fixed inset-0 bg-[#0a0d27]/80 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-
-          {/* Modal Container */}
-          <div className="bg-[#12163b] border border-white/10 rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden text-left">
-
-            {/* Header Area */}
+        <div className="fixed inset-0 bg-[#0a0d27]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 text-left">
+          {/* FIXED: Frosted glass background */}
+          <div className="bg-[#0a0d27]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] w-full max-w-lg shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
             <div className="px-10 py-8 border-b border-white/5 bg-white/[0.02]">
               <h3 className="text-2xl font-medium text-white tracking-tight">Edit Equipment</h3>
               <p className="text-gray-400 text-sm mt-2 font-light">Update the details and current status of this asset.</p>
             </div>
 
-            {/* Form Area */}
             <form onSubmit={handleEdit} className="p-10 flex flex-col gap-8">
               <div className="space-y-6">
-
-                {/* Name Input */}
                 <div className="flex flex-col gap-2.5">
                   <label className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Asset Name</label>
                   <input
@@ -96,7 +85,6 @@ export function ItemActions({ item }: { item: DbItem }) {
                   />
                 </div>
 
-                {/* Category Input */}
                 <div className="flex flex-col gap-2.5">
                   <label className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Category</label>
                   <input
@@ -108,23 +96,18 @@ export function ItemActions({ item }: { item: DbItem }) {
                   />
                 </div>
 
-                {/* Status Dropdown */}
                 <div className="flex flex-col gap-2.5">
                   <label className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Current Status</label>
                   <div className="relative">
                     <select
                       value={status}
-                      onChange={e => setStatus(e.target.value as 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE')}
-                      // appearance-none removes the ugly default OS styling
+                      onChange={e => setStatus(e.target.value)}
                       className="w-full bg-[#0a0d27]/50 border border-white/10 rounded-xl px-5 py-3.5 text-white appearance-none focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all font-light cursor-pointer"
                     >
-                      {/* Set backgrounds on options so they don't turn transparent on Windows */}
                       <option value="AVAILABLE" className="bg-[#12163b] text-white py-2">Available</option>
                       <option value="BORROWED" className="bg-[#12163b] text-white py-2">Borrowed</option>
                       <option value="MAINTENANCE" className="bg-[#12163b] text-white py-2">Maintenance</option>
                     </select>
-
-                    {/* Custom Chevron Icon */}
                     <div className="absolute inset-y-0 right-0 flex items-center px-5 pointer-events-none text-gray-400">
                       <svg className="w-5 h-5 fill-current" viewBox="0 0 20 20">
                         <path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" fillRule="evenodd"></path>
@@ -134,7 +117,6 @@ export function ItemActions({ item }: { item: DbItem }) {
                 </div>
               </div>
 
-              {/* Footer Actions */}
               <div className="flex justify-end gap-4 mt-2">
                 <button
                   type="button"
@@ -152,7 +134,42 @@ export function ItemActions({ item }: { item: DbItem }) {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
 
+      {/* --- NEW CUSTOM DELETE MODAL --- */}
+      {isDeleteOpen && (
+        <div className="fixed inset-0 bg-[#0a0d27]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 text-left">
+          <div className="bg-[#0a0d27]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] w-full max-w-md shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden">
+            <div className="px-8 py-6 border-b border-white/5 bg-white/[0.02]">
+              <h3 className="text-xl font-medium text-white tracking-tight">Delete Equipment</h3>
+            </div>
+
+            <div className="p-8 flex flex-col gap-8">
+              <p className="text-gray-300 font-light text-[15px] leading-relaxed">
+                Are you sure you want to permanently delete <strong className="text-white font-medium">{item.name}</strong>? This action cannot be undone.
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteOpen(false)}
+                  className="px-6 py-2.5 rounded-full text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+                >
+                  Cancel
+                </button>
+                {/* Styled using the muted rose palette from the dashboard */}
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isLoading}
+                  className="px-6 py-2.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-sm font-medium rounded-full hover:bg-rose-500/20 disabled:opacity-50 transition-colors flex items-center gap-2"
+                >
+                  {isLoading ? 'Deleting...' : 'Yes, Delete Asset'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

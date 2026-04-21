@@ -17,7 +17,6 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
   const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  // Close the menu if the user clicks outside of it
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
@@ -54,9 +53,9 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
         )}
       </button>
 
-      {/* Flow-Style Dropdown Menu */}
+      {/* FIXED: Frosted Glass Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-[340px] bg-[#1e1e1e] border border-white/10 rounded-[2rem] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute right-0 mt-3 w-[340px] bg-[#0a0d27]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 animate-in fade-in zoom-in-95 duration-200">
           <div className="p-4 flex flex-col gap-3">
 
             {/* User Info Header */}
@@ -73,8 +72,8 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
             {/* Divider */}
             <div className="h-[1px] bg-white/10 w-full my-1" />
 
-            {/* Simulated "Credits" Box - Used here for Admin Role Status */}
-            <div className="bg-white/[0.04] border border-white/5 rounded-3xl p-4 flex flex-col gap-3">
+            {/* FIXED: Inner Card using white overlay */}
+            <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-4 flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-300 text-sm font-medium px-1">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -86,7 +85,7 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
                   router.push('/dashboard/items')
                   setIsOpen(false)
                 }}
-                className="w-full py-3 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-medium transition-colors"
+                className="w-full py-3 bg-white text-[#0a0d27] hover:bg-gray-200 rounded-full text-sm font-medium transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)]"
               >
                 Manage Equipment
               </button>
@@ -94,18 +93,16 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
 
             {/* Secondary Actions */}
             <div className="flex flex-col gap-2 mt-1">
-              {/* "My Library" equivalent */}
               <button
                 onClick={() => {
                   router.push('/dashboard/history')
                   setIsOpen(false)
                 }}
-                className="w-full flex items-center justify-center py-3 bg-white/10 hover:bg-white/15 border border-transparent rounded-full text-white text-sm font-medium transition-colors"
+                className="w-full flex items-center justify-center py-3 bg-white/5 hover:bg-white/10 border border-transparent rounded-full text-white text-sm font-medium transition-colors"
               >
                 View Activity Logs
               </button>
 
-              {/* "Sign Out" equivalent */}
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center justify-center py-3 bg-transparent border border-white/10 hover:bg-white/5 rounded-full text-white text-sm font-medium transition-colors"
