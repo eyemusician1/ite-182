@@ -10,18 +10,19 @@ export function useRealtimeItems(initialItems: ItemWithLatestBorrow[]) {
   const [items, setItems] = useState<ItemWithLatestBorrow[]>(initialItems)
 
   useEffect(() => {
+    if (!supabase) return
+
     const channel = supabase
       .channel('items-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'items' },
-        (payload) => {
+        (payload: { new?: Partial<ItemWithLatestBorrow> | null; old?: Partial<ItemWithLatestBorrow> | null }) => {
+          const newItem = payload.new as ItemWithLatestBorrow | undefined
+          if (!newItem) return
+
           setItems((prev) =>
-            prev.map((item) =>
-              item.id === (payload.new as ItemWithLatestBorrow).id
-                ? { ...item, ...(payload.new as ItemWithLatestBorrow) }
-                : item
-            )
+            prev.map((item) => (item.id === newItem.id ? { ...item, ...newItem } : item))
           )
         }
       )

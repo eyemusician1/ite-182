@@ -1,146 +1,94 @@
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { UserMenu } from '@/components/dashboard/user-menu'
-import { AddEquipmentDialog } from '@/components/dashboard/add-equipment-dialog'
 import { ItemsTable } from '@/components/dashboard/items-table'
-import prisma from '@/lib/prisma'
+import { RealtimeListener } from '@/components/dashboard/realtime-listener'
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
+  const now = new Date().toISOString()
 
-  // Authenticate user
-  const { data: { user }, error } = await supabase.auth.getUser()
-
-  if (!user || error) {
-    redirect('/login')
-  }
-
-  const fullName = user.user_metadata?.full_name as string | undefined
-  const email = user.email ?? ''
-  const avatarUrl = user.user_metadata?.avatar_url as string | undefined
-
-  const initials = fullName
-    ? fullName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
-    : email.slice(0, 2).toUpperCase()
-
- // Get the current date and time to check for overdue items
-  const now = new Date()
-
-  // Fetch real-time statistics from the database concurrently for maximum speed
-  const [totalAssets, availableItems, activeBorrows, overdueBorrows] = await Promise.all([
-    prisma.item.count(),
-    prisma.item.count({ where: { status: 'AVAILABLE' } }),
-
-    // An "Active" borrow is one that hasn't been returned yet (returnedAt is null)
-    prisma.borrowLog.count({
-      where: { returnedAt: null }
-    }),
-
-    // An "Overdue" borrow hasn't been returned AND the expected date has passed
-    prisma.borrowLog.count({
-      where: {
-        returnedAt: null,
-        expectedReturn: { lt: now } // "lt" means Less Than (before now)
-      }
-    }),
+  const [
+    { count: totalAssets },
+    { count: availableItems },
+    { count: activeBorrows },
+    { count: overdueBorrows }
+  ] = await Promise.all([
+    supabase.from('items').select('*', { count: 'exact', head: true }),
+    supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'AVAILABLE'),
+    supabase.from('borrow_logs').select('*', { count: 'exact', head: true }).is('returned_at', null),
+    supabase.from('borrow_logs').select('*', { count: 'exact', head: true }).is('returned_at', null).lt('expected_return', now),
   ])
 
   return (
-    <div
-      className="min-h-screen bg-[#0a0d27] text-white selection:bg-white/20"
-      style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}
-    >
-      <nav className="border-b border-white/10 bg-[#0a0d27]/80 backdrop-blur-xl sticky top-0 z-50">
-        <div className="max-w-[1400px] mx-auto px-6 h-24 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <span className="text-3xl font-medium tracking-tight text-white">
-              Inventory <span className="text-gray-500 font-normal ml-2">Lab Control</span>
-            </span>
-          </div>
+    <div className="flex flex-col gap-10 animate-in fade-in duration-700">
+      <RealtimeListener />
 
-          <div className="flex items-center gap-8">
-            <div className="hidden md:flex items-center gap-8">
-              <Link href="/dashboard" className="text-base text-white font-medium hover:text-gray-300 transition-colors">Overview</Link>
-              <Link href="/dashboard/items" className="text-base text-gray-500 hover:text-white transition-colors">Database</Link>
-              <Link href="/dashboard/history" className="text-base text-gray-500 hover:text-white transition-colors">Logs</Link>
-            </div>
+      <div>
+        <h1 className="text-[2.75rem] leading-tight font-medium tracking-tight mb-2">System Overview</h1>
+        <p className="text-gray-400 text-[17px] font-light">Real-time status of all laboratory assets.</p>
+      </div>
 
-            <input
-              type="text"
-              placeholder="Search..."
-              className="hidden md:block bg-white/5 border border-white/10 rounded-full px-6 py-2.5 min-w-[250px] focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-white placeholder:text-gray-500 text-sm"
-            />
+      {/* Flow-Styled Stat Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
 
-            <UserMenu
-              initials={initials}
-              fullName={fullName}
-              email={email}
-              avatarUrl={avatarUrl}
-            />
+        {/* Card 1 */}
+        <div className="p-8 rounded-[2rem] bg-white/[0.03] border border-white/5 flex flex-col justify-between min-h-[190px] hover:bg-white/[0.05] transition-colors">
+          <span className="text-[15px] font-medium text-gray-400 tracking-wide">Total Assets</span>
+          <div className="text-6xl font-light tracking-tight mt-4 text-white">
+            {totalAssets ?? 0}
           </div>
         </div>
-      </nav>
 
-      <main className="max-w-[1400px] mx-auto px-6 py-16 flex flex-col gap-12 animate-in fade-in duration-700">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-          <div>
-            <h1 className="text-[3rem] leading-tight font-medium tracking-tight mb-2">System Overview</h1>
-            <p className="text-gray-400 text-xl font-light">Real-time status of all laboratory assets.</p>
+        {/* Card 2 */}
+        <div className="p-8 rounded-[2rem] bg-white/[0.03] border border-white/5 flex flex-col justify-between min-h-[190px] hover:bg-white/[0.05] transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-[15px] font-medium text-gray-400 tracking-wide">Available</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></div>
           </div>
-
-          <AddEquipmentDialog />
+          <div className="text-6xl font-light tracking-tight mt-4 text-white">
+            {availableItems ?? 0}
+          </div>
         </div>
 
-        {/* --- Dynamic Stat Cards --- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-          <div className="p-10 rounded-[2rem] bg-white/5 border border-white/10 flex flex-col justify-between min-h-[200px]">
-            <span className="text-lg font-medium text-gray-400">Total Assets</span>
-            <div className="text-7xl font-light tracking-tight mt-4 bg-gradient-to-b from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
-              {totalAssets}
-            </div>
+        {/* Card 3 */}
+        <div className="p-8 rounded-[2rem] bg-white/[0.03] border border-white/5 flex flex-col justify-between min-h-[190px] hover:bg-white/[0.05] transition-colors">
+          <div className="flex items-center justify-between">
+            <span className="text-[15px] font-medium text-gray-400 tracking-wide">Active Borrows</span>
+            <div className="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]"></div>
           </div>
-
-          <div className="p-10 rounded-[2rem] bg-white/5 border border-white/10 flex flex-col justify-between min-h-[200px]">
-            <span className="text-lg font-medium text-gray-400">Available</span>
-            <div className="text-7xl font-light tracking-tight mt-4 bg-gradient-to-b from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
-              {availableItems}
-            </div>
+          <div className="text-6xl font-light tracking-tight mt-4 text-white">
+            {activeBorrows ?? 0}
           </div>
-
-          <div className="p-10 rounded-[2rem] bg-white/5 border border-white/10 flex flex-col justify-between min-h-[200px]">
-            <span className="text-lg font-medium text-gray-400">Active Borrows</span>
-            <div className="text-7xl font-light tracking-tight mt-4 bg-gradient-to-b from-white via-white/90 to-white/40 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(255,255,255,0.15)]">
-              {activeBorrows}
-            </div>
-          </div>
-
-          <div className="p-10 rounded-[2rem] bg-white/5 border border-white/10 flex flex-col justify-between min-h-[200px] relative overflow-hidden">
-            <span className="text-lg font-medium text-red-400 z-10">Overdue</span>
-            <div className="text-7xl font-light tracking-tight mt-4 bg-gradient-to-b from-red-400 via-red-500/90 to-red-900/50 bg-clip-text text-transparent drop-shadow-[0_0_12px_rgba(248,113,113,0.2)] z-10 relative">
-              {overdueBorrows}
-            </div>
-            <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-red-500/10 blur-[64px] rounded-full pointer-events-none" />
-          </div>
-
         </div>
 
-        <div className="rounded-[2rem] border border-white/10 bg-white/5 overflow-hidden flex flex-col mt-4">
-          <div className="px-10 py-8 border-b border-white/10 flex items-center justify-between">
-            <h2 className="text-2xl font-medium tracking-tight">Recent Activity</h2>
-
-            <Link href="/dashboard/history">
-              <button className="text-gray-400 hover:text-white font-medium text-base transition-colors">
-                View All Logs &rarr;
-              </button>
-            </Link>
+        {/* Card 4 (Overdue - Maintains the red alert theme but in Flow style) */}
+        <div className="p-8 rounded-[2rem] bg-red-500/[0.05] border border-red-500/10 flex flex-col justify-between min-h-[190px] relative overflow-hidden group">
+          <span className="text-[15px] font-medium text-red-400 tracking-wide z-10">Overdue</span>
+          <div className="text-6xl font-light tracking-tight mt-4 text-red-400 z-10">
+            {overdueBorrows ?? 0}
           </div>
-
-          {/* This table was updated previously to fetch real data */}
-          <ItemsTable />
+          {/* Subtle glow effect */}
+          <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-red-500/10 blur-[50px] rounded-full pointer-events-none group-hover:bg-red-500/20 transition-colors" />
         </div>
-      </main>
+      </div>
+
+      {/* Recent Activity Table Container */}
+      <div className="rounded-[2rem] border border-white/5 bg-white/[0.02] overflow-hidden flex flex-col mt-2 shadow-2xl">
+        <div className="px-8 py-6 border-b border-white/5 flex items-center justify-between">
+          <h2 className="text-xl font-medium tracking-tight text-white">Recent Activity</h2>
+
+          {/* Flow-Style Secondary Pill Button */}
+          <Link href="/dashboard/history">
+            <button className="px-5 py-2.5 rounded-full bg-transparent border border-white/10 hover:bg-white/5 text-white text-[13px] font-medium transition-colors flex items-center gap-2">
+              View All Logs
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+              </svg>
+            </button>
+          </Link>
+        </div>
+        <ItemsTable />
+      </div>
     </div>
   )
 }

@@ -1,17 +1,9 @@
-'use client'
+"use client"
 
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuGroup,
-} from "@/components/ui/dropdown-menu"
 import Image from 'next/image'
+import { supabase } from '@/lib/supabase'
 
 interface UserMenuProps {
   initials: string
@@ -21,63 +13,119 @@ interface UserMenuProps {
 }
 
 export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps) {
+  const [isOpen, setIsOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
-  const handleLogout = async () => {
+  // Close the menu if the user clicks outside of it
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSignOut = async () => {
     await supabase.auth.signOut()
     router.push('/login')
+    router.refresh()
   }
 
   return (
-    <DropdownMenu>
-      {/* Trigger: The Avatar */}
-      <DropdownMenuTrigger
-        className="outline-none focus:ring-2 focus:ring-white/20 rounded-full transition-all"
-        style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}
+    <div className="relative" ref={menuRef} style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
+      {/* Trigger Avatar */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-center w-10 h-10 rounded-full bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-white/20 shadow-lg"
       >
-        <div className="w-12 h-12 rounded-full border border-white/20 bg-white/5 flex items-center justify-center text-sm font-medium select-none overflow-hidden relative hover:bg-white/10">
-          {avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt="User Avatar"
-              fill
-              className="object-cover"
-              sizes="48px"
-            />
-          ) : (
-            initials
-          )}
-        </div>
-      </DropdownMenuTrigger>
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt="User Avatar"
+            width={40}
+            height={40}
+            className="w-full h-full rounded-full object-cover"
+          />
+        ) : (
+          initials
+        )}
+      </button>
 
-      {/* Dropdown Content: Glassmorphism style with explicit font */}
-      <DropdownMenuContent
-        align="end"
-        className="w-64 bg-[#13172e]/95 backdrop-blur-xl border border-white/10 text-white rounded-2xl p-2 shadow-2xl"
-        style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}
-      >
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="px-4 py-3">
-            <div className="flex flex-col space-y-1">
-              <p className="text-base font-medium leading-none text-white">{fullName || 'User'}</p>
-              <p className="text-sm leading-none text-gray-400 mt-1">{email}</p>
+      {/* Flow-Style Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute right-0 mt-3 w-[340px] bg-[#1e1e1e] border border-white/10 rounded-[2rem] shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-200">
+          <div className="p-4 flex flex-col gap-3">
+
+            {/* User Info Header */}
+            <div className="flex items-center gap-4 px-2 pt-2 pb-2">
+              <div className="flex items-center justify-center w-11 h-11 rounded-full bg-indigo-500 text-white font-medium text-lg shrink-0">
+                {initials}
+              </div>
+              <div className="flex flex-col truncate">
+                <span className="text-white text-[15px] font-medium truncate">{fullName || 'Lab Admin'}</span>
+                <span className="text-gray-400 text-xs truncate">{email}</span>
+              </div>
             </div>
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
 
-        <DropdownMenuSeparator className="bg-white/10 my-1" />
+            {/* Divider */}
+            <div className="h-[1px] bg-white/10 w-full my-1" />
 
-        <DropdownMenuItem className="px-4 py-3 text-sm cursor-pointer rounded-xl hover:bg-white/5 transition-colors">
-          Account Settings
-        </DropdownMenuItem>
+            {/* Simulated "Credits" Box - Used here for Admin Role Status */}
+            <div className="bg-white/[0.04] border border-white/5 rounded-3xl p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-gray-300 text-sm font-medium px-1">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+                Admin Privileges Active
+              </div>
+              <button
+                onClick={() => {
+                  router.push('/dashboard/items')
+                  setIsOpen(false)
+                }}
+                className="w-full py-3 bg-white text-black hover:bg-gray-200 rounded-full text-sm font-medium transition-colors"
+              >
+                Manage Equipment
+              </button>
+            </div>
 
-        <DropdownMenuItem
-          onClick={handleLogout}
-          className="px-4 py-3 text-sm cursor-pointer rounded-xl text-red-400 focus:bg-red-500/10 focus:text-red-300 transition-colors mt-1"
-        >
-          Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            {/* Secondary Actions */}
+            <div className="flex flex-col gap-2 mt-1">
+              {/* "My Library" equivalent */}
+              <button
+                onClick={() => {
+                  router.push('/dashboard/history')
+                  setIsOpen(false)
+                }}
+                className="w-full flex items-center justify-center py-3 bg-white/10 hover:bg-white/15 border border-transparent rounded-full text-white text-sm font-medium transition-colors"
+              >
+                View Activity Logs
+              </button>
+
+              {/* "Sign Out" equivalent */}
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center justify-center py-3 bg-transparent border border-white/10 hover:bg-white/5 rounded-full text-white text-sm font-medium transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+
+            {/* Flow's Tiny Footer Links */}
+            <div className="flex items-center justify-center gap-3 pt-2 pb-1 text-[11px] text-gray-500">
+              <span className="hover:text-gray-300 cursor-pointer transition-colors">Privacy</span>
+              <span>•</span>
+              <span className="hover:text-gray-300 cursor-pointer transition-colors">Terms of Service</span>
+              <span>•</span>
+              <span className="hover:text-gray-300 cursor-pointer transition-colors">Licenses</span>
+            </div>
+
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

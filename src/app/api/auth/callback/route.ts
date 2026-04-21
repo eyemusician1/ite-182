@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get('code')
   // Allows us to redirect them to a specific page after login, defaults to dashboard
   const next = searchParams.get('next') ?? '/dashboard'
+  const safePath = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
+
 
   if (code) {
     const supabase = await createSupabaseServerClient()
@@ -35,5 +37,5 @@ export async function GET(request: NextRequest) {
   }
 
   // If there's no code or something went wrong, send them back to login
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  return NextResponse.redirect(`${origin}${safePath}`)
 }

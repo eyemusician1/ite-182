@@ -1,18 +1,49 @@
-'use client'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 
-// Dummy data for visualization
-const MOCK_LOGS = [
-  { id: 'L01', itemName: 'Digital Oscilloscope', borrower: 'John Doe', dept: 'CICS', borrowedAt: 'Oct 20, 2026', expectedReturn: 'Oct 22, 2026', returnedAt: 'Oct 22, 2026', status: 'RETURNED' },
-  { id: 'L02', itemName: 'MacBook Pro M3 Max', borrower: 'Jane Smith', dept: 'Engineering', borrowedAt: 'Oct 23, 2026', expectedReturn: 'Oct 30, 2026', returnedAt: '-', status: 'ACTIVE' },
-  { id: 'L03', itemName: 'Raspberry Pi 5 Kit', borrower: 'Alan Turing', dept: 'CICS', borrowedAt: 'Oct 10, 2026', expectedReturn: 'Oct 15, 2026', returnedAt: '-', status: 'OVERDUE' },
-  { id: 'L04', itemName: 'Fluke 87V Multimeter', borrower: 'Ada Lovelace', dept: 'Physics', borrowedAt: 'Oct 18, 2026', expectedReturn: 'Oct 19, 2026', returnedAt: 'Oct 19, 2026', status: 'RETURNED' },
-]
+interface BorrowLog {
+  id: string
+  borrowed_at: string
+  expected_return: string
+  returned_at: string | null
+  borrower_name: string
+  borrower_dept: string
+  items: { name: string } | null
+}
 
-export function HistoryTable() {
+function getStatus(log: BorrowLog): 'RETURNED' | 'OVERDUE' | 'ACTIVE' {
+  if (log.returned_at) return 'RETURNED'
+  if (new Date(log.expected_return) < new Date()) return 'OVERDUE'
+  return 'ACTIVE'
+}
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+export async function HistoryTable() {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: logs, error } = await supabase
+    .from('borrow_logs')
+    .select('*, items(name)')
+    .order('borrowed_at', { ascending: false })
+    .limit(50)
+
+  if (error) console.error('Error fetching borrow logs:', error.message)
+
+  if (!logs || logs.length === 0) {
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="p-16 text-center text-gray-500 font-light text-xl">
+          No borrow history found.
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
-
-      {/* Table Filters & Controls */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between items-center px-2">
         <div className="flex gap-4 w-full sm:w-auto">
           <input
@@ -20,19 +51,12 @@ export function HistoryTable() {
             placeholder="Filter by item or borrower..."
             className="w-full sm:w-80 bg-white/5 border border-white/10 rounded-full px-6 py-3 focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-white placeholder:text-gray-500 text-sm"
           />
-          <select className="hidden sm:block bg-white/5 border border-white/10 rounded-full px-6 py-3 text-gray-300 focus:outline-none focus:border-white/30 appearance-none min-w-[160px] cursor-pointer">
-            <option value="ALL" className="bg-[#0a0d27]">All Departments</option>
-            <option value="CICS" className="bg-[#0a0d27]">CICS</option>
-            <option value="ENG" className="bg-[#0a0d27]">Engineering</option>
-          </select>
         </div>
-
         <button className="text-sm font-medium text-white bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-full transition-all w-full sm:w-auto">
           Export Data
         </button>
       </div>
 
-      {/* The Data Table */}
       <div className="w-full overflow-x-auto rounded-[2rem] border border-white/10 bg-white/5 shadow-2xl">
         <table className="w-full text-left border-collapse min-w-[900px]">
           <thead>
@@ -46,35 +70,33 @@ export function HistoryTable() {
             </tr>
           </thead>
           <tbody className="text-gray-300">
-            {MOCK_LOGS.map((log) => (
-              <tr key={log.id} className="border-b border-white/5 hover:bg-white/[0.04] transition-colors">
-
-                <td className="px-8 py-6">
-                  <div className="text-white font-medium text-base">{log.itemName}</div>
-                  <div className="text-gray-500 text-sm mt-1">ID: {log.id}</div>
-                </td>
-
-                <td className="px-6 py-6">
-                  <div className="text-white font-medium">{log.borrower}</div>
-                  <div className="text-gray-500 text-sm mt-1">{log.dept}</div>
-                </td>
-
-                <td className="px-6 py-6 font-light text-gray-400">{log.borrowedAt}</td>
-                <td className="px-6 py-6 font-light text-gray-400">{log.expectedReturn}</td>
-                <td className="px-6 py-6 font-light text-gray-400">{log.returnedAt}</td>
-
-                <td className="px-8 py-6 text-right">
-                  <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase border ${
-                    log.status === 'RETURNED' ? 'bg-gray-500/10 text-gray-400 border-gray-500/20' :
-                    log.status === 'ACTIVE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
-                    'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(248,113,113,0.15)]'
-                  }`}>
-                    {log.status}
-                  </span>
-                </td>
-
-              </tr>
-            ))}
+            {logs.map((log: BorrowLog) => {
+              const status = getStatus(log)
+              return (
+                <tr key={log.id} className="border-b border-white/5 hover:bg-white/[0.04] transition-colors">
+                  <td className="px-8 py-6">
+                    <div className="text-white font-medium text-base">{log.items?.name ?? '—'}</div>
+                    <div className="text-gray-500 text-sm mt-1">ID: {log.id.slice(0, 8)}</div>
+                  </td>
+                  <td className="px-6 py-6">
+                    <div className="text-white font-medium">{log.borrower_name}</div>
+                    <div className="text-gray-500 text-sm mt-1">{log.borrower_dept}</div>
+                  </td>
+                  <td className="px-6 py-6 font-light text-gray-400">{formatDate(log.borrowed_at)}</td>
+                  <td className="px-6 py-6 font-light text-gray-400">{formatDate(log.expected_return)}</td>
+                  <td className="px-6 py-6 font-light text-gray-400">{formatDate(log.returned_at)}</td>
+                  <td className="px-8 py-6 text-right">
+                    <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-medium tracking-widest uppercase border ${
+                      status === 'RETURNED' ? 'bg-gray-500/10 text-gray-400 border-gray-500/20' :
+                      status === 'ACTIVE' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20' :
+                      'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(248,113,113,0.15)]'
+                    }`}>
+                      {status}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.4.0",
-    "@prisma/client": "^6.0.0",
     "@supabase/ssr": "^0.10.0",
     "@supabase/supabase-js": "^2.103.0",
     "class-variance-authority": "^0.7.1",
@@ -42,7 +41,6 @@
     "@types/react-dom": "^19.2.3",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
-    "prisma": "^6.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
