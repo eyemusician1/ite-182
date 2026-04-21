@@ -34,7 +34,7 @@ export default async function ScanPage({ params }: { params: { unitId: string } 
     )
   }
 
-  const item = unit.items ?? null
+  const item = Array.isArray(unit.items) ? unit.items[0] : unit.items ?? null
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
