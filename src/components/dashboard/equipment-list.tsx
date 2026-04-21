@@ -1,11 +1,32 @@
-'use client'
+ 'use client'
 
 import { useState } from 'react'
 import { ItemActions } from '@/components/dashboard/item-actions'
 
-export function EquipmentList({ items }: { items: any[] }) {
+interface Item {
+  id: string
+  name: string
+  category: string
+  status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE'
+  quantity?: number
+  created_at?: string
+  updated_at?: string
+}
+
+interface Group {
+  key: string
+  name: string
+  category: string
+  total: number
+  available: number
+  borrowed: number
+  maintenance: number
+  items: Item[]
+}
+
+export function EquipmentList({ items }: { items: Item[] }) {
   // 1. Group the raw items by Name + Category
-  const groupedItems = items.reduce((acc: any, item: any) => {
+  const groupedItems = items.reduce<Record<string, Group>>((acc, item) => {
     const key = `${item.name}-${item.category}`
     if (!acc[key]) {
       acc[key] = {
@@ -19,7 +40,7 @@ export function EquipmentList({ items }: { items: any[] }) {
         items: []
       }
     }
-    const qty = Number(item.quantity || 1)
+    const qty = Number(item.quantity ?? 1)
     acc[key].total += qty
     if (item.status === 'AVAILABLE') acc[key].available += qty
     if (item.status === 'BORROWED') acc[key].borrowed += qty
@@ -29,7 +50,7 @@ export function EquipmentList({ items }: { items: any[] }) {
     return acc
   }, {})
 
-  const groups = Object.values(groupedItems) as any[]
+  const groups = Object.values(groupedItems)
 
   // 2. State to track which groups are expanded
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({})
@@ -112,7 +133,7 @@ export function EquipmentList({ items }: { items: any[] }) {
             </tr>
 
             {/* --- INDIVIDUAL ITEM ROWS (Hidden until expanded) --- */}
-            {isExpanded && group.items.map((item: any) => (
+            {isExpanded && group.items.map((item) => (
               <tr key={item.id} className="bg-black/20 border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                 <td className="px-10 py-5 pl-[4.5rem] flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />

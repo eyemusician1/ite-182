@@ -25,7 +25,6 @@ export async function createSupabaseServerClient() {
               // swallow the error to avoid unhandledRejection when
               // this helper is used from a Server Component.
               // Optionally log for debugging.
-              // eslint-disable-next-line no-console
               console.warn(`Could not set cookie ${name} in this context:`, (err as Error).message)
             }
           })

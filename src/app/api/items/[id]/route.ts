@@ -3,11 +3,27 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
   const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return null
+  return user
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createSupabaseServerClient()
+  const user = await verifyAuth(supabase)
+
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const p = await params
+  const id = p?.id
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
   try {
     // Read optional decrement amount from request body (if provided).
     let decrement = 1
     try {
-      const body = await _req.json().catch(() => ({}))
+      const body = await req.json().catch(() => ({}))
       if (body && typeof body.decrement === 'number') decrement = Math.max(1, Math.floor(body.decrement))
     } catch {
       // ignore
@@ -63,6 +79,7 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
         console.error('DELETE /api/items/[id] update error:', updErr.message)
         return NextResponse.json({ error: updErr.message }, { status: 500 })
       }
+
       // remove `decrement` number of item_units for this item (if table exists)
       try {
         const { data: units } = await supabase
@@ -74,7 +91,7 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
           .limit(decrement)
 
         if (units && units.length > 0) {
-          const ids = units.map((u: any) => u.id)
+          const ids = units.map((u: { id: string }) => u.id)
           await supabase.from('item_units').delete().in('id', ids)
         }
       } catch (uErr) {
@@ -84,7 +101,6 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
       return NextResponse.json({ id: updated?.id ?? id, quantity: updated?.quantity ?? newQty }, { status: 200 })
     }
 
-    // quantity reached zero — delete the row
     // quantity reached zero — delete the row and all its item_units
     try {
       // delete units first (if table exists)
@@ -116,3 +132,4 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
     console.error('DELETE /api/items/[id] unexpected error:', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
+}

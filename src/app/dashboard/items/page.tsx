@@ -5,7 +5,7 @@ import { RealtimeListener } from '@/components/dashboard/realtime-listener'
 // Import the new EquipmentList component
 import { EquipmentList } from '@/components/dashboard/equipment-list'
 
-export default async function ItemsManagementPage({ searchParams }: { searchParams?: any }) {
+export default async function ItemsManagementPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> | undefined }) {
   const supabase = await createSupabaseServerClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -14,7 +14,9 @@ export default async function ItemsManagementPage({ searchParams }: { searchPara
   }
 
   const sp = await searchParams
-  const search = (sp?.search || '').trim()
+  const rawSearch = sp?.search ?? ''
+  const searchStr = Array.isArray(rawSearch) ? rawSearch.join(' ') : rawSearch
+  const search = (searchStr || '').trim()
 
   let query = supabase.from('items').select('*')
   if (search) {

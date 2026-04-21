@@ -8,7 +8,7 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
   return user
 }
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   const supabase = await createSupabaseServerClient()
   const user = await verifyAuth(supabase)
 
