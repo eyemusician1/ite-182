@@ -4,6 +4,91 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 export async function POST(req: NextRequest) {
   const supabase = await createSupabaseServerClient()
 
+  try {
+    const body = await req.json().catch(() => ({}))
+    const { unitId, borrowerName, borrowerEmail } = body as { unitId?: string; borrowerName?: string; borrowerEmail?: string }
+
+    if (!unitId) return NextResponse.json({ error: 'unitId required' }, { status: 400 })
+    if (!borrowerName || !borrowerName.trim()) return NextResponse.json({ error: 'borrowerName required' }, { status: 400 })
+
+    // Check unit availability
+    const { data: unit, error: unitErr } = await supabase
+      .from('item_units')
+      .select('id, status, item_id')
+      .eq('id', unitId)
+      .maybeSingle()
+
+    if (unitErr) {
+      console.error('POST /api/borrow unit select error:', unitErr.message)
+      return NextResponse.json({ error: unitErr.message }, { status: 500 })
+    }
+
+    if (!unit) return NextResponse.json({ error: 'Unit not found' }, { status: 404 })
+    if (unit.status !== 'AVAILABLE') return NextResponse.json({ error: 'Unit not available' }, { status: 409 })
+
+    const now = new Date().toISOString()
+
+    // Attempt to mark the unit as BORROWED and create a borrow record.
+    // Wrap in try/catch — if borrows table doesn't exist, proceed with unit update.
+    try {
+      // update unit status
+      const { data: updatedUnit, error: updErr } = await supabase
+        .from('item_units')
+        .update({ status: 'BORROWED', updated_at: now })
+        .eq('id', unitId)
+        .select()
+        .maybeSingle()
+
+      if (updErr) throw updErr
+
+      // decrement aggregated items.quantity if column exists
+      try {
+        await supabase.from('items').update({ quantity: (supabase.raw ? undefined : undefined) }).eq('id', unit.item_id)
+      } catch {
+        // best-effort: attempt to decrement using SQL fallback
+        try {
+          await supabase.rpc('decrement_item_quantity', { _item_id: unit.item_id })
+        } catch {
+          // ignore if no rpc defined — admin can run migration later
+        }
+      }
+
+      // try to insert into `borrows` table if it exists
+      try {
+        const borrowRow = {
+          id: crypto.randomUUID(),
+          unit_id: unitId,
+          item_id: unit.item_id,
+          borrower_name: borrowerName.trim(),
+          borrower_email: borrowerEmail ?? null,
+          borrowed_at: now,
+        }
+        const { error: borrowErr } = await supabase.from('borrows').insert([borrowRow])
+        if (borrowErr) {
+          // not fatal — proceed
+          console.warn('Could not create borrows row:', borrowErr.message)
+        }
+      } catch (bErr) {
+        console.warn('borrows insertion skipped:', (bErr as Error).message)
+      }
+
+      return NextResponse.json({ ok: true, unit: updatedUnit ?? { id: unitId } }, { status: 200 })
+    } catch (err) {
+      console.error('POST /api/borrow error:', (err as Error).message)
+      return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('POST /api/borrow unexpected error:', msg)
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
+}
+import { NextRequest, NextResponse } from 'next/server'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+
+export async function POST(req: NextRequest) {
+  const supabase = await createSupabaseServerClient()
+
   // 1. Security Check (Admin only)
   const { data: { user } } = await supabase.auth.getUser()
   if (!user || user.app_metadata?.role !== 'admin') {

@@ -53,15 +53,10 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
         )}
       </button>
 
-      {/* FIXED: Forced WebKit Blur to prevent transparency bleeding */}
+      {/* FIXED: 100% Solid elevated navy background (#0e1236) - No more bleed-through! */}
       {isOpen && (
         <div
-          className="absolute right-0 mt-3 w-[340px] border border-white/10 rounded-[2rem] shadow-[0_24px_50px_rgba(0,0,0,0.5)] z-50 animate-in fade-in zoom-in-95 duration-200"
-          style={{
-            backgroundColor: 'rgba(10, 13, 39, 0.65)', /* 65% opacity of your #0a0d27 navy color */
-            backdropFilter: 'blur(32px) saturate(200%)',
-            WebkitBackdropFilter: 'blur(32px) saturate(200%)' /* Forces Chrome/Edge to render the blur */
-          }}
+          className="absolute right-0 mt-3 w-[340px] bg-[#0e1236] border border-white/10 rounded-[2rem] shadow-[0_24px_50px_rgba(0,0,0,0.6)] z-50 animate-in fade-in zoom-in-95 duration-200"
         >
           <div className="p-4 flex flex-col gap-3">
 
@@ -79,10 +74,10 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
             {/* Divider */}
             <div className="h-[1px] bg-white/10 w-full my-1" />
 
-            {/* Inner Card */}
-            <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-4 flex flex-col gap-3">
+            {/* Inner Card - Solid inset using your deepest navy */}
+            <div className="bg-[#0a0d27] border border-white/10 rounded-3xl p-4 flex flex-col gap-3 shadow-inner">
               <div className="flex items-center gap-2 text-gray-300 text-sm font-medium px-1">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                 </svg>
                 Admin Privileges Active
