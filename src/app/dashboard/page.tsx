@@ -7,17 +7,17 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
   const now = new Date().toISOString()
 
-  const [
-    { count: totalAssets },
-    { count: availableItems },
-    { count: activeBorrows },
-    { count: overdueBorrows }
-  ] = await Promise.all([
-    supabase.from('items').select('*', { count: 'exact', head: true }),
-    supabase.from('items').select('*', { count: 'exact', head: true }).eq('status', 'AVAILABLE'),
-    supabase.from('borrow_logs').select('*', { count: 'exact', head: true }).is('returned_at', null),
-    supabase.from('borrow_logs').select('*', { count: 'exact', head: true }).is('returned_at', null).lt('expected_return', now),
+  // Fetch items and borrow counts. We sum `quantity` on the server-side results for totals.
+  const [{ data: items }, { data: activeBorrowRows }, { data: overdueRows }] = await Promise.all([
+    supabase.from('items').select('id,quantity,status'),
+    supabase.from('borrow_logs').select('*').is('returned_at', null),
+    supabase.from('borrow_logs').select('*').is('returned_at', null).lt('expected_return', now),
   ])
+
+  const totalAssets = (items || []).reduce((s, it) => s + (it.quantity || 0), 0)
+  const availableItems = (items || []).filter(i => i.status === 'AVAILABLE').reduce((s, it) => s + (it.quantity || 0), 0)
+  const activeBorrows = activeBorrowRows?.length ?? 0
+  const overdueBorrows = overdueRows?.length ?? 0
 
   return (
     <div className="flex flex-col gap-10 animate-in fade-in duration-700">

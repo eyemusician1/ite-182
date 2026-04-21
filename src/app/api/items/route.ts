@@ -53,20 +53,42 @@ export async function POST(req: NextRequest) {
     const qty = Math.max(1, Math.floor(Number(quantity) || 1))
     const now = new Date().toISOString()
 
-    // Bulk insert N items with the same name/category
-    const itemsToInsert = Array.from({ length: qty }).map(() => ({
-      id: crypto.randomUUID(),
-      name: name.trim(),
-      category: category.trim(),
-      status: 'AVAILABLE',
-      created_at: now,
-      updated_at: now,
-    }))
+    // If an item with the same name+category already exists, increment its quantity.
+    const { data: existing, error: selectErr } = await supabase
+      .from('items')
+      .select('*')
+      .eq('name', name.trim())
+      .eq('category', category.trim())
+      .maybeSingle()
 
+    if (selectErr) {
+      console.error('POST /api/items select error:', selectErr.message)
+      return NextResponse.json({ error: selectErr.message }, { status: 500 })
+    }
+
+    if (existing) {
+      const newQty = (existing.quantity || 0) + qty
+      const { data: updated, error: updErr } = await supabase
+        .from('items')
+        .update({ quantity: newQty, updated_at: now })
+        .eq('id', existing.id)
+        .select()
+        .maybeSingle()
+
+      if (updErr) {
+        console.error('POST /api/items update error:', updErr.message)
+        return NextResponse.json({ error: updErr.message }, { status: 500 })
+      }
+
+      return NextResponse.json(updated, { status: 200 })
+    }
+
+    // Insert a single aggregated item row
     const { data, error } = await supabase
       .from('items')
-      .insert(itemsToInsert)
+      .insert([{ id: crypto.randomUUID(), name: name.trim(), category: category.trim(), status: 'AVAILABLE', quantity: qty, created_at: now, updated_at: now }])
       .select()
+      .maybeSingle()
 
     if (error) {
       console.error('POST /api/items insert error:', error.message)

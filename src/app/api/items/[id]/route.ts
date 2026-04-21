@@ -7,7 +7,7 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
   return user
 }
 
-export async function DELETE(_req: NextRequest, { params }: { params: { id?: string } }) {
+export async function DELETE(_req: NextRequest, { params }: { params: any }) {
   const supabase = await createSupabaseServerClient()
   const user = await verifyAuth(supabase)
 
@@ -15,7 +15,8 @@ export async function DELETE(_req: NextRequest, { params }: { params: { id?: str
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const id = params?.id
+  const p = await params
+  const id = p?.id
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
   try {

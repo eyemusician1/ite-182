@@ -19,11 +19,11 @@ export function EquipmentList({ items }: { items: any[] }) {
         items: []
       }
     }
-
-    acc[key].total++
-    if (item.status === 'AVAILABLE') acc[key].available++
-    if (item.status === 'BORROWED') acc[key].borrowed++
-    if (item.status === 'MAINTENANCE') acc[key].maintenance++
+    const qty = Number(item.quantity || 1)
+    acc[key].total += qty
+    if (item.status === 'AVAILABLE') acc[key].available += qty
+    if (item.status === 'BORROWED') acc[key].borrowed += qty
+    if (item.status === 'MAINTENANCE') acc[key].maintenance += qty
 
     acc[key].items.push(item)
     return acc
@@ -86,7 +86,7 @@ export function EquipmentList({ items }: { items: any[] }) {
               <td className="px-6 py-6 font-light text-gray-400 text-[15px]">{group.category}</td>
               <td className="px-6 py-6">
                 <span className="text-[15px] font-medium text-white">{group.available}</span>
-                <span className="text-gray-500 text-sm ml-1">/ {group.total} Available</span>
+                <span className="text-gray-500 text-sm ml-1">/ {group.total} Total</span>
               </td>
               <td className="px-6 py-6">
                 {/* Aggregate Status Badge */}
@@ -116,11 +116,13 @@ export function EquipmentList({ items }: { items: any[] }) {
               <tr key={item.id} className="bg-black/20 border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                 <td className="px-10 py-5 pl-[4.5rem] flex items-center gap-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-gray-600" />
-                  <span className="text-gray-400 font-mono text-[13px]">ID: {item.id.split('-')[0]}...</span>
+                  <span className="text-white font-medium">{item.name}</span>
                 </td>
-                <td className="px-6 py-5 text-gray-500 text-sm font-light">Individual Unit</td>
+                <td className="px-6 py-5 text-gray-500 text-sm font-light">{item.category}</td>
                 <td className="px-6 py-5">
-                  {/* Individual Status Badge */}
+                  <span className="text-[15px] font-medium text-white">{item.quantity ?? 1}</span>
+                </td>
+                <td className="px-6 py-5">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium tracking-widest uppercase border ${
                     item.status === 'AVAILABLE'
                       ? 'bg-white/5 border-white/10 text-gray-400'
@@ -130,9 +132,6 @@ export function EquipmentList({ items }: { items: any[] }) {
                   }`}>
                     {item.status}
                   </span>
-                </td>
-                <td className="px-6 py-5 text-gray-500 font-light text-sm">
-                  Added: {new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </td>
                 <td className="px-10 py-5 text-right">
                   <ItemActions item={item} />

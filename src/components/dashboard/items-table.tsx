@@ -6,6 +6,7 @@ export interface Item {
   category: string
   status: string
   created_at: string
+  quantity?: number
 }
 
 export async function ItemsTable() {
@@ -36,6 +37,7 @@ export async function ItemsTable() {
           <tr className="border-b border-white/5 text-gray-500 text-[11px] tracking-widest uppercase font-medium bg-[#0a0d27]/40">
             <th className="px-8 py-5 font-normal">Asset Name</th>
             <th className="px-6 py-5 font-normal">Category</th>
+            <th className="px-6 py-5 font-normal">Quantity</th>
             <th className="px-6 py-5 font-normal">Status</th>
             <th className="px-8 py-5 font-normal text-right">Added</th>
           </tr>
@@ -45,6 +47,7 @@ export async function ItemsTable() {
             <tr key={item.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
               <td className="px-8 py-5 text-white font-medium text-[15px]">{item.name}</td>
               <td className="px-6 py-5 font-light text-[15px]">{item.category}</td>
+              <td className="px-6 py-5 font-light text-[15px]">{item.quantity ?? 1}</td>
               <td className="px-6 py-5">
                 <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-[11px] font-medium tracking-widest uppercase border ${
                   item.status === 'AVAILABLE'

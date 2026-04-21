@@ -5,7 +5,7 @@ import { RealtimeListener } from '@/components/dashboard/realtime-listener'
 // Import the new EquipmentList component
 import { EquipmentList } from '@/components/dashboard/equipment-list'
 
-export default async function ItemsManagementPage({ searchParams }: { searchParams?: { search?: string } }) {
+export default async function ItemsManagementPage({ searchParams }: { searchParams?: any }) {
   const supabase = await createSupabaseServerClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -13,7 +13,8 @@ export default async function ItemsManagementPage({ searchParams }: { searchPara
     redirect('/login?error=unauthorized')
   }
 
-  const search = (searchParams?.search || '').trim()
+  const sp = await searchParams
+  const search = (sp?.search || '').trim()
 
   let query = supabase.from('items').select('*')
   if (search) {
@@ -44,7 +45,7 @@ export default async function ItemsManagementPage({ searchParams }: { searchPara
         <div className="px-10 py-8 border-b border-white/10 flex items-center justify-between bg-white/[0.01]">
           <h2 className="text-xl font-medium tracking-tight text-white">Inventory Overview</h2>
           <span className="text-gray-500 text-sm font-medium tracking-widest uppercase">
-            {items?.length || 0} Total Physical Assets
+            {(items || []).reduce((s, it) => s + (it.quantity || 1), 0)} Total Physical Assets
           </span>
         </div>
 
