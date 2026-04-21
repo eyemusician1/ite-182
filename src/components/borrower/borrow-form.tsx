@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function BorrowForm({ itemId }: { itemId: string }) {
+export function BorrowForm({ itemId, itemName }: { itemId: string, itemName?: string }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +41,7 @@ export function BorrowForm({ itemId }: { itemId: string }) {
 
   return (
     <div className="bg-[#12163b] border border-white/10 rounded-[2rem] p-8 mt-4 shadow-2xl">
-      <h3 className="text-xl font-medium text-white mb-6">Borrow this Asset</h3>
+      <h3 className="text-xl font-medium text-white mb-6">Borrow this Asset{itemName ? ` — ${itemName}` : ''}</h3>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
         {error && (
