@@ -13,7 +13,21 @@ export async function createSupabaseServerClient() {
         getAll() { return cookieStore.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options)
+            try {
+              // Setting cookies from a Server Component causes Next.js to throw.
+              // Only route handlers or server actions should mutate cookies.
+              // Guard against that by catching and ignoring the error here.
+              // In route handlers, cookies().set will work as expected.
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-ignore
+              cookieStore.set(name, value, options)
+            } catch (err) {
+              // swallow the error to avoid unhandledRejection when
+              // this helper is used from a Server Component.
+              // Optionally log for debugging.
+              // eslint-disable-next-line no-console
+              console.warn(`Could not set cookie ${name} in this context:`, (err as Error).message)
+            }
           })
         },
       },

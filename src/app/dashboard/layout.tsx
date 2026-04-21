@@ -1,7 +1,9 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { UserMenu } from '@/components/dashboard/user-menu'
+import { SearchInput } from '@/components/dashboard/search-input' // FIXED IMPORT
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient()
@@ -25,9 +27,18 @@ export default async function DashboardLayout({ children }: { children: React.Re
     >
       <nav className="border-b border-white/10 bg-[#0a0d27]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-[1400px] mx-auto px-6 h-24 flex items-center justify-between">
-          <span className="text-3xl font-medium tracking-tight text-white">
-            Inventory <span className="text-gray-500 font-normal ml-2">Lab Control</span>
-          </span>
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <Image
+              src="/cics-logo.png"
+              alt="CICS Logo"
+              width={140}
+              height={40}
+              className="object-contain h-10 w-auto"
+              style={{ filter: 'drop-shadow(0 6px 12px rgba(0,0,0,0.45)) saturate(1.05) contrast(1.08)' }}
+              priority
+            />
+            <span className="sr-only">Inventory Lab Control</span>
+          </Link>
 
           <div className="flex items-center gap-8">
             <div className="hidden md:flex items-center gap-8">
@@ -35,17 +46,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <Link href="/dashboard/items" className="text-base text-gray-400 hover:text-white transition-colors">Equipments</Link>
               <Link href="/dashboard/history" className="text-base text-gray-400 hover:text-white transition-colors">Logs</Link>
             </div>
-            <input
-              type="text"
-              placeholder="Search everything..."
-              className="hidden md:block bg-white/5 border border-white/10 rounded-full px-6 py-2.5 min-w-[250px] focus:outline-none focus:border-white/30 focus:bg-white/10 transition-all text-white placeholder:text-gray-500 text-sm"
-            />
+            <SearchInput />
             <UserMenu initials={initials} fullName={fullName} email={email} avatarUrl={avatarUrl} />
           </div>
         </div>
       </nav>
 
-      {/* FIXED: Added max-width, horizontal auto-margin, and padding */}
       <main className="flex-1 w-full max-w-[1400px] mx-auto px-6 py-12 md:py-16">
         {children}
       </main>

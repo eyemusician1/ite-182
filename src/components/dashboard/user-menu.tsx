@@ -53,9 +53,16 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
         )}
       </button>
 
-      {/* FIXED: Frosted Glass Dropdown Menu */}
+      {/* FIXED: Forced WebKit Blur to prevent transparency bleeding */}
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-[340px] bg-[#0a0d27]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] shadow-[0_8px_32px_rgba(0,0,0,0.5)] z-50 animate-in fade-in zoom-in-95 duration-200">
+        <div
+          className="absolute right-0 mt-3 w-[340px] border border-white/10 rounded-[2rem] shadow-[0_24px_50px_rgba(0,0,0,0.5)] z-50 animate-in fade-in zoom-in-95 duration-200"
+          style={{
+            backgroundColor: 'rgba(10, 13, 39, 0.65)', /* 65% opacity of your #0a0d27 navy color */
+            backdropFilter: 'blur(32px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(32px) saturate(200%)' /* Forces Chrome/Edge to render the blur */
+          }}
+        >
           <div className="p-4 flex flex-col gap-3">
 
             {/* User Info Header */}
@@ -72,7 +79,7 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
             {/* Divider */}
             <div className="h-[1px] bg-white/10 w-full my-1" />
 
-            {/* FIXED: Inner Card using white overlay */}
+            {/* Inner Card */}
             <div className="bg-white/[0.04] border border-white/10 rounded-3xl p-4 flex flex-col gap-3">
               <div className="flex items-center gap-2 text-gray-300 text-sm font-medium px-1">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,9 +1,17 @@
-'use client'
+"use client"
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export function ItemActions({ item }: { item: any }) {
+interface RawItem {
+  id: string
+  name: string
+  category: string
+  status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE'
+  created_at?: string
+}
+
+export function ItemActions({ item }: { item: RawItem }) {
   const router = useRouter()
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false) // New state for custom delete modal
@@ -101,7 +109,7 @@ export function ItemActions({ item }: { item: any }) {
                   <div className="relative">
                     <select
                       value={status}
-                      onChange={e => setStatus(e.target.value)}
+                      onChange={e => setStatus(e.target.value as RawItem['status'])}
                       className="w-full bg-[#0a0d27]/50 border border-white/10 rounded-xl px-5 py-3.5 text-white appearance-none focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all font-light cursor-pointer"
                     >
                       <option value="AVAILABLE" className="bg-[#12163b] text-white py-2">Available</option>

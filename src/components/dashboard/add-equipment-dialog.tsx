@@ -44,8 +44,9 @@ export function AddEquipmentDialog() {
         // ✅ Refresh server component data so new items appear immediately
         router.refresh()
       }
-    } catch (err: any) {
-      setError('Network error. Please check your connection and try again.')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.'
+      setError(msg)
     }
 
     setIsLoading(false)

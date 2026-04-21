@@ -9,7 +9,7 @@ async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServ
   return user
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   const supabase = await createSupabaseServerClient()
   const user = await verifyAuth(supabase)
 
@@ -74,8 +74,9 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(data, { status: 201 })
-  } catch (err: any) {
-    console.error('POST /api/items unexpected error:', err.message)
-    return NextResponse.json({ error: err.message }, { status: 500 })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('POST /api/items unexpected error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
