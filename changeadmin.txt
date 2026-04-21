@@ -1,0 +1,4 @@
+-- add or overwrite role = "admin" in app_metadata for the user with that email
+UPDATE auth.users
+SET app_metadata = COALESCE(app_metadata, '{}'::jsonb) || '{"role":"admin"}'::jsonb
+WHERE email = 'alice@example.com';

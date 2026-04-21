@@ -9,6 +9,7 @@ interface RawItem {
   category: string
   status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE'
   created_at?: string
+  quantity?: number
 }
 
 export function ItemActions({ item }: { item: RawItem }) {
@@ -41,17 +42,27 @@ export function ItemActions({ item }: { item: RawItem }) {
     setIsLoading(false)
   }
 
-  const handleDelete = async () => {
+  const handleDelete = async (decrement = 1) => {
     setIsLoading(true)
-    const res = await fetch(`/api/items/${item.id}`, { method: 'DELETE' })
+    try {
+      const res = await fetch(`/api/items/${item.id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decrement })
+      })
 
-    if (res.ok) {
-      setIsDeleteOpen(false)
-      router.refresh()
-    } else {
-      const { error } = await res.json()
-      alert(`Delete failed: ${error}`)
+      if (res.ok) {
+        setIsDeleteOpen(false)
+        router.refresh()
+      } else {
+        const { error } = await res.json().catch(() => ({}))
+        alert(`Delete failed: ${error ?? 'Unknown error'}`)
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      alert(`Network error: ${msg}`)
     }
+
     setIsLoading(false)
   }
 
@@ -167,15 +178,37 @@ export function ItemActions({ item }: { item: RawItem }) {
                 >
                   Cancel
                 </button>
-                {/* Styled using the muted rose palette from the dashboard */}
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  disabled={isLoading}
-                  className="px-6 py-2.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-sm font-medium rounded-full hover:bg-rose-500/20 disabled:opacity-50 transition-colors flex items-center gap-2"
-                >
-                  {isLoading ? 'Deleting...' : 'Yes, Delete Asset'}
-                </button>
+
+                {item.quantity && item.quantity > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(1)}
+                      disabled={isLoading}
+                      className="px-6 py-2.5 bg-white text-[#0a0d27] rounded-full text-sm font-medium hover:bg-gray-200 disabled:opacity-50 transition-colors"
+                    >
+                      {isLoading ? 'Removing...' : 'Remove One'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item.quantity)}
+                      disabled={isLoading}
+                      className="px-6 py-2.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-sm font-medium rounded-full hover:bg-rose-500/20 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                      {isLoading ? 'Deleting...' : `Delete All (${item.quantity})`}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(1)}
+                    disabled={isLoading}
+                    className="px-6 py-2.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 text-sm font-medium rounded-full hover:bg-rose-500/20 disabled:opacity-50 transition-colors flex items-center gap-2"
+                  >
+                    {isLoading ? 'Deleting...' : 'Yes, Delete Asset'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
