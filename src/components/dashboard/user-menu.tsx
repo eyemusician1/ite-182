@@ -28,10 +28,12 @@ export function UserMenu({ initials, fullName, email, avatarUrl }: UserMenuProps
   }, [])
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
-  }
+  if (!supabase) return
+  const client = supabase
+  await client.auth.signOut()
+  router.push('/login')
+  router.refresh()
+}
 
   return (
     <div className="relative" ref={menuRef} style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>

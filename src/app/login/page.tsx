@@ -7,21 +7,23 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [authError, setAuthError] = useState<string | null>(null)
 
-  // Check the URL for the unauthorized error when the page loads
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     if (params.get('error') === 'unauthorized') {
       setAuthError("Access denied. Account is not an admin.")
-      // Clean up the URL so it looks nice
       window.history.replaceState(null, '', '/login')
     }
   }, [])
 
   const handleGoogleLogin = async () => {
+    if (!supabase) return
+
+    const client = supabase // narrowed to non-null
+
     setIsLoading(true)
     setAuthError(null)
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`
@@ -53,7 +55,6 @@ export default function LoginPage() {
         <div className="w-full max-w-sm flex flex-col items-center">
           <div className="flex flex-col items-center gap-6 w-full animate-in zoom-in-95 duration-500">
 
-            {/* --- Error Message Display --- */}
             {authError && (
               <div className="w-full bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl text-sm font-medium">
                 {authError}
