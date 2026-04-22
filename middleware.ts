@@ -5,7 +5,6 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // Skip static files and auth callback
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/auth') ||
@@ -24,6 +23,9 @@ export async function middleware(req: NextRequest) {
         getAll() { return req.cookies.getAll() },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
+            // Write refreshed cookies onto both request and response
+            // so subsequent middleware and route handlers see them
+            req.cookies.set(name, value)
             res.cookies.set(name, value, options)
           })
         },
@@ -34,7 +36,6 @@ export async function middleware(req: NextRequest) {
   // getSession reads from cookie only — no network call, fast
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Protect dashboard and API routes
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
     if (!session) {
       const loginUrl = new URL('/login', req.url)

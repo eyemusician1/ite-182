@@ -1,7 +1,9 @@
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { BorrowForm } from '@/components/borrower/borrow-form'
 import { ItemStatusCard } from '@/components/borrower/item-status-card'
 import { ReturnButton } from '@/components/borrower/return-button'
+
+export const revalidate = 0 // always fresh — borrowers need real-time status
 
 type Item = {
   id: string
@@ -18,100 +20,71 @@ type BorrowLog = {
   expected_return?: string | null
 }
 
+const ErrorCard = ({ title, message }: { title: string; message: string }) => (
+  <div className="min-h-screen bg-[#0a0d27] flex items-center justify-center p-6" style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
+    <div className="w-full max-w-xl rounded-[2.5rem] bg-[#0e1236] border border-white/10 p-10 shadow-2xl text-center">
+      <h2 className="text-2xl font-medium text-white tracking-tight">{title}</h2>
+      <p className="text-gray-400 mt-2 font-light">{message}</p>
+    </div>
+  </div>
+)
+
 export default async function ScanPage({ params }: { params: { unitId: string } }) {
-  const supabase = await createSupabaseServerClient()
   const unitId = params?.unitId
 
   if (!unitId) {
-    return (
-      <div className="min-h-screen bg-[#0a0d27] flex items-center justify-center p-6" style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
-        <div className="w-full max-w-xl rounded-[2.5rem] bg-[#0e1236] border border-white/10 p-10 shadow-2xl text-center">
-          <h2 className="text-2xl font-medium text-white tracking-tight">Invalid QR Code</h2>
-          <p className="text-gray-400 mt-2 font-light">No unit identifier provided.</p>
-        </div>
-      </div>
-    )
+    return <ErrorCard title="Invalid QR Code" message="No unit identifier provided." />
   }
 
-  // Try to resolve the item from `item_units` first (preferred when QR encodes unit id).
-  // Fallback to querying `items` directly if no unit row exists for the provided id.
+  // Use admin client — borrowers aren't authenticated, no need for cookie-based client
+  const supabase = createSupabaseAdminClient()
+
   let item: Item | null = null
-  let error: unknown = null
 
-  try {
-    const { data: unitRow, error: unitErr } = await supabase
-      .from('item_units')
-      .select('item_id, items(id, name, category, status, quantity)')
-      .eq('id', unitId)
-      .maybeSingle()
+  // Try item_units first, then fall back to items directly — all in parallel where possible
+  const { data: unitRow } = await supabase
+    .from('item_units')
+    .select('item_id')
+    .eq('id', unitId)
+    .maybeSingle()
 
-    if (unitErr) {
-      console.warn('Could not fetch item_units for scan:', unitErr.message)
-    }
+  const itemId = unitRow?.item_id ?? unitId
 
-    if (unitRow && unitRow.items) {
-      // Supabase types joined relations as arrays; normalize to single object
-      const joined = unitRow.items
-      item = (Array.isArray(joined) ? joined[0] : joined) as Item ?? null
-    } else if (unitRow && unitRow.item_id) {
-      const { data: itm, error: itErr } = await supabase
-        .from('items')
-        .select('id, name, category, status, quantity')
-        .eq('id', unitRow.item_id)
-        .maybeSingle()
-      if (itErr) console.warn('Could not fetch item by item_id fallback:', itErr.message)
-      item = (itm as Item) ?? null
-    } else {
-      const { data: itm, error: itErr } = await supabase
-        .from('items')
-        .select('id, name, category, status, quantity')
-        .eq('id', unitId)
-        .maybeSingle()
-      if (itErr) console.warn('Could not fetch item by unitId fallback:', itErr.message)
-      item = (itm as Item) ?? null
-    }
-  } catch (err) {
-    error = err
-    console.error('Scan page fetch error:', err)
+  // Single query with joined borrow log — no sequential calls
+  const { data: itemData } = await supabase
+    .from('items')
+    .select(`
+      id, name, category, status, quantity,
+      borrow_logs (
+        id, borrower_name, department, expected_return, returned_at
+      )
+    `)
+    .eq('id', itemId)
+    .maybeSingle()
+
+  item = itemData ? {
+    id: itemData.id,
+    name: itemData.name,
+    category: itemData.category,
+    status: itemData.status,
+    quantity: itemData.quantity,
+  } : null
+
+  if (!item) {
+    return <ErrorCard title="Asset Not Found" message="This equipment unit does not exist or has been removed from the system." />
   }
 
-  if (error || !item) {
-    return (
-      <div className="min-h-screen bg-[#0a0d27] flex items-center justify-center p-6" style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
-        <div className="w-full max-w-xl rounded-[2.5rem] bg-[#0e1236] border border-white/10 p-10 shadow-2xl text-center">
-          <h2 className="text-2xl font-medium text-white tracking-tight">Asset Not Found</h2>
-          <p className="text-gray-400 mt-2 font-light">This equipment unit does not exist or has been removed from the system.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // If the item is borrowed, fetch the active borrow log to display the student's name
-  let activeLog: BorrowLog | null = null
-  if (item.status === 'BORROWED') {
-    try {
-      const { data: log, error: logErr } = await supabase
-        .from('borrow_logs')
-        .select('*')
-        .eq('item_id', item.id)
-        .is('returned_at', null)
-        .maybeSingle()
-
-      if (logErr) console.warn('Could not fetch active borrow log:', logErr.message)
-      activeLog = (log as BorrowLog) ?? null
-    } catch (err) {
-      if (err instanceof Error) {
-        console.warn('Error fetching borrow log:', err.message)
-      }
-      activeLog = null
-    }
-  }
+  // Get active log from joined data — no extra DB call
+  const activeLog: BorrowLog | null = item.status === 'BORROWED'
+    ? ((itemData?.borrow_logs as BorrowLog[]) ?? []).find(
+        (log: BorrowLog & { returned_at?: string | null }) => log.returned_at === null
+      ) ?? null
+    : null
 
   return (
     <div className="min-h-screen bg-[#0a0d27] flex items-center justify-center p-6" style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
       <div className="w-full max-w-xl rounded-[2.5rem] bg-[#0e1236] border border-white/10 p-10 shadow-[0_24px_50px_rgba(0,0,0,0.5)]">
 
-        {/* Header Info */}
         <h1 className="text-3xl font-medium text-white tracking-tight">{item.name}</h1>
         <div className="flex flex-col gap-1 mt-4">
           <p className="text-gray-400 text-[15px] font-light">
@@ -122,9 +95,7 @@ export default async function ScanPage({ params }: { params: { unitId: string } 
           </p>
         </div>
 
-        {/* Dynamic State Rendering */}
         <div className="mt-8">
-
           {item.status === 'AVAILABLE' && (
             <BorrowForm itemId={item.id} itemName={item.name} />
           )}
@@ -145,12 +116,11 @@ export default async function ScanPage({ params }: { params: { unitId: string } 
           )}
 
           {item.status === 'MAINTENANCE' && (
-             <div className="p-8 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 flex flex-col items-center justify-center text-center mt-4">
-               <span className="text-rose-400 font-medium tracking-widest uppercase text-sm">Under Maintenance</span>
-               <p className="text-gray-300 mt-2 text-[15px] font-light">This equipment is currently unavailable for borrowing.</p>
-             </div>
+            <div className="p-8 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 flex flex-col items-center justify-center text-center mt-4">
+              <span className="text-rose-400 font-medium tracking-widest uppercase text-sm">Under Maintenance</span>
+              <p className="text-gray-300 mt-2 text-[15px] font-light">This equipment is currently unavailable for borrowing.</p>
+            </div>
           )}
-
         </div>
       </div>
     </div>

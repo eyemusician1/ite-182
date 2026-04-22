@@ -1,17 +1,23 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { getUser } from '@/lib/get-user'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { UserMenu } from '@/components/dashboard/user-menu'
 import { SearchInput } from '@/components/dashboard/search-input'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, error } = await getUser()
+  const supabase = await createSupabaseServerClient()
 
-  if (!user || error || user.app_metadata?.role !== 'admin') {
-    redirect('/login?error=unauthorized')
+  // getSession reads from cookie only — no network call, instant
+  // Security is enforced by middleware + the callback route which checks app_metadata
+  const { data: { session } } = await supabase.auth.getSession()
+
+  if (!session) {
+    redirect('/login')
   }
 
+  // User data comes from the session token — still no network call
+  const user = session.user
   const fullName = user.user_metadata?.full_name as string | undefined
   const email = user.email ?? ''
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined

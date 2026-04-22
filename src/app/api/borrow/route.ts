@@ -1,60 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
+import { getUser } from '@/lib/get-user'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
-export async function POST(req: NextRequest) {
+export async function GET() {
+  const { user, error: authError } = await getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const supabase = await createSupabaseServerClient()
 
-  // 1. Admin-only guard
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user || user.app_metadata?.role !== 'admin') {
-    return NextResponse.json({ error: 'Unauthorized: Admin access required' }, { status: 401 })
+  const { data, error } = await supabase
+    .from('borrow_logs')
+    .select(`
+      id, item_id, borrower_name, department,
+      borrowed_at, expected_return, returned_at, returned_by_staff,
+      items ( name, category )
+    `)
+    .order('borrowed_at', { ascending: false })
+
+  if (error) {
+    console.error('GET /api/borrow error:', error.message)
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  try {
-    const body = await req.json()
-    const { itemId, borrowerName, department, expectedReturn } = body
-
-    if (!itemId || !borrowerName || !department || !expectedReturn) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
-
-    // 2. Atomic update — only succeeds if item is currently AVAILABLE
-    const { data: updatedItem, error: updateError } = await supabase
-      .from('items')
-      .update({ status: 'BORROWED' })
-      .eq('id', itemId)
-      .eq('status', 'AVAILABLE')
-      .select()
-      .single()
-
-    if (updateError || !updatedItem) {
-      return NextResponse.json(
-        { error: 'Transaction failed: Item is already borrowed, under maintenance, or does not exist.' },
-        { status: 400 }
-      )
-    }
-
-    // 3. Insert borrow log
-    const { error: logError } = await supabase
-      .from('borrow_logs')
-      .insert([{
-        item_id: itemId,
-        borrower_name: borrowerName,
-        department: department,
-        expected_return: expectedReturn,
-      }])
-
-    // 4. Manual rollback if log insert fails
-    if (logError) {
-      console.error('Borrow log insert failed:', logError.message)
-      await supabase.from('items').update({ status: 'AVAILABLE' }).eq('id', itemId)
-      return NextResponse.json({ error: 'Failed to record borrow log. Item status reverted.' }, { status: 500 })
-    }
-
-    return NextResponse.json({ message: 'Item successfully borrowed!', item: updatedItem }, { status: 200 })
-
-  } catch (err) {
-    console.error('Error in /api/borrow:', err)
-    return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 })
-  }
+  return NextResponse.json(data, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10',
+    },
+  })
 }

@@ -1,41 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  // Allows us to redirect them to a specific page after login, defaults to dashboard
   const next = searchParams.get('next') ?? '/dashboard'
   const safePath = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
 
-
-  if (code) {
-    const supabase = await createSupabaseServerClient()
-    // This exchanges the Google code for a secure Supabase session
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-
-    if (!error) {
-      // 1. Grab the user data that Supabase just created/verified
-      const { data: { user } } = await supabase.auth.getUser()
-
-      // 2. Check the secure app_metadata for the admin role!
-      const role = user?.app_metadata?.role
-
-      // 3. If they do NOT have the admin tag, kick them out immediately
-      if (role !== 'admin') {
-        // Destroy the session so they aren't technically logged in anymore
-        await supabase.auth.signOut()
-        // Send them back to the login page with a specific error flag in the URL
-        return NextResponse.redirect(`${origin}/login?error=unauthorized`)
-      }
-
-      // 4. Authorized Admin! Send them securely to the dashboard
-      return NextResponse.redirect(`${origin}${next}`)
-    }
-
-    console.error('exchangeCodeForSession error:', error.message)
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login`)
   }
 
-  // If there's no code or something went wrong, send them back to login
-  return NextResponse.redirect(`${origin}${safePath}`)
+  const response = NextResponse.redirect(`${origin}${safePath}`)
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll()
+        },
+        setAll(cookiesToSet) {
+          // Critical: write cookies onto the redirect response so the
+          // browser receives the session on the very first redirect
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options)
+          })
+        },
+      },
+    }
+  )
+
+  const { error } = await supabase.auth.exchangeCodeForSession(code)
+
+  if (error) {
+    console.error('exchangeCodeForSession error:', error.message)
+    return NextResponse.redirect(`${origin}/login`)
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user?.app_metadata?.role !== 'admin') {
+    await supabase.auth.signOut()
+    return NextResponse.redirect(`${origin}/login?error=unauthorized`)
+  }
+
+  return response
 }

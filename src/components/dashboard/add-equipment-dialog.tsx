@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   Dialog,
   DialogContent,
@@ -9,11 +8,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-export function AddEquipmentDialog() {
+export function AddEquipmentDialog({ onSuccess }: { onSuccess?: () => void }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
-  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -36,13 +34,11 @@ export function AddEquipmentDialog() {
       const body = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        // ✅ Fixed: server returns body.error not body.message
         setError(body.error ?? 'Failed to register equipment. Please try again.')
       } else {
         form.reset()
         setOpen(false)
-        // ✅ Refresh server component data so new items appear immediately
-        router.refresh()
+        onSuccess?.() // triggers SWR revalidation in parent
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Network error. Please check your connection and try again.'
@@ -84,9 +80,7 @@ export function AddEquipmentDialog() {
             <div className="flex flex-col gap-2.5">
               <label htmlFor="name" className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Equipment Name</label>
               <input
-                id="name"
-                name="name"
-                required
+                id="name" name="name" required
                 placeholder="e.g. Oscilloscope Model X"
                 className="w-full bg-[#0a0d27]/50 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all font-light"
               />
@@ -96,24 +90,15 @@ export function AddEquipmentDialog() {
               <div className="flex flex-col gap-2.5 flex-1">
                 <label htmlFor="category" className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Category</label>
                 <input
-                  id="category"
-                  name="category"
-                  required
+                  id="category" name="category" required
                   placeholder="e.g. Electronics"
                   className="w-full bg-[#0a0d27]/50 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all font-light"
                 />
               </div>
-
               <div className="flex flex-col gap-2.5 w-1/3">
                 <label htmlFor="quantity" className="text-sm font-medium text-gray-300 tracking-wide uppercase text-xs">Quantity</label>
                 <input
-                  id="quantity"
-                  name="quantity"
-                  type="number"
-                  min="1"
-                  step="1"
-                  defaultValue="1"
-                  required
+                  id="quantity" name="quantity" type="number" min="1" step="1" defaultValue="1" required
                   className="w-full bg-[#0a0d27]/50 border border-white/10 rounded-xl px-5 py-3.5 text-white placeholder-gray-600 focus:outline-none focus:border-white/30 focus:ring-1 focus:ring-white/30 transition-all font-light"
                 />
               </div>
@@ -135,8 +120,7 @@ export function AddEquipmentDialog() {
             >
               {isLoading
                 ? <><span className="w-4 h-4 border-2 border-[#0a0d27]/30 border-t-[#0a0d27] rounded-full animate-spin" /> Adding...</>
-                : 'Add Equipment'
-              }
+                : 'Add Equipment'}
             </button>
           </div>
         </form>
