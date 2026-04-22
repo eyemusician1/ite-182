@@ -9,12 +9,13 @@ export interface Item {
   quantity?: number
 }
 
+/** Fetches only the 5 most recent items — select only needed columns. */
 export async function ItemsTable() {
   const supabase = await createSupabaseServerClient()
 
   const { data: items, error } = await supabase
     .from('items')
-    .select('*')
+    .select('id, name, category, status, quantity, created_at') // only needed columns
     .order('created_at', { ascending: false })
     .limit(5)
 

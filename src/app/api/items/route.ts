@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-// Simple auth check — verifies the user is logged in via Supabase Auth.
-async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
-  return user
-}
+import { getUser } from '@/lib/get-user'
 
 export async function GET() {
-  const supabase = await createSupabaseServerClient()
-  const user = await verifyAuth(supabase)
+  const { user, error: authError } = await getUser()
 
-  if (!user) {
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const supabase = await createSupabaseServerClient()
   const { data: items, error } = await supabase
     .from('items')
-    .select('*')
+    .select('id, name, category, status, quantity, created_at, updated_at') // only needed columns
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -26,14 +20,19 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(items, { status: 200 })
+  return NextResponse.json(items, {
+    status: 200,
+    headers: {
+      // Cache for 30s on CDN edge, allow stale for 10s while revalidating
+      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10',
+    },
+  })
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient()
-  const user = await verifyAuth(supabase)
+  const { user, error: authError } = await getUser()
 
-  if (!user) {
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -48,14 +47,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Category is required' }, { status: 400 })
     }
 
-    // Clamp quantity to a safe whole number, minimum 1
     const qty = Math.max(1, Math.floor(Number(quantity) || 1))
     const now = new Date().toISOString()
 
-    // If an item with the same name+category already exists, increment its quantity.
+    const supabase = await createSupabaseServerClient()
+
     const { data: existing, error: selectErr } = await supabase
       .from('items')
-      .select('*')
+      .select('id, quantity')  // only needed columns
       .eq('name', name.trim())
       .eq('category', category.trim())
       .maybeSingle()
@@ -65,7 +64,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: selectErr.message }, { status: 500 })
     }
 
-    // helper to detect missing-quantity-column errors
     const isMissingQuantityError = (err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err)
       return /quantity|Could not find the 'quantity' column|column.*quantity.*does not exist/i.test(msg)
@@ -83,7 +81,6 @@ export async function POST(req: NextRequest) {
 
         if (updErr) throw updErr
 
-        // Try to create per-unit records in `item_units` (unique IDs for QR codes)
         try {
           const unitsToInsert = Array.from({ length: qty }).map(() => ({
             id: crypto.randomUUID(),
@@ -92,21 +89,16 @@ export async function POST(req: NextRequest) {
             created_at: now,
             updated_at: now,
           }))
-
           const { error: unitsErr } = await supabase.from('item_units').insert(unitsToInsert)
-          if (unitsErr) {
-            console.warn('Could not create item_units (table may be missing):', unitsErr.message)
-          }
+          if (unitsErr) console.warn('Could not create item_units:', unitsErr.message)
         } catch (uErr) {
           console.warn('item_units insertion skipped:', (uErr as Error).message)
         }
 
         return NextResponse.json(updated, { status: 200 })
       } catch (updErr) {
-        // Fallback for databases that haven't had the `quantity` column added yet.
         if (isMissingQuantityError(updErr)) {
-          console.warn('Quantity column missing — falling back to per-unit inserts. Please run the Supabase migration to add `quantity`.')
-          // Insert `qty` additional individual rows (legacy behavior)
+          console.warn('Quantity column missing — falling back to per-unit inserts.')
           const itemsToInsert = Array.from({ length: qty }).map(() => ({
             id: crypto.randomUUID(),
             name: name.trim(),
@@ -115,38 +107,32 @@ export async function POST(req: NextRequest) {
             created_at: now,
             updated_at: now,
           }))
-
-          const { data, error } = await supabase
-            .from('items')
-            .insert(itemsToInsert)
-            .select()
-
-          if (error) {
-            console.error('POST /api/items fallback insert error:', error.message)
-            return NextResponse.json({ error: error.message }, { status: 500 })
-          }
-
+          const { data, error } = await supabase.from('items').insert(itemsToInsert).select()
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 })
           return NextResponse.json(data, { status: 201 })
         }
-
-        console.error('POST /api/items update error:', (updErr as Error).message ?? String(updErr))
-        return NextResponse.json({ error: (updErr as Error).message ?? String(updErr) }, { status: 500 })
+        console.error('POST /api/items update error:', (updErr as Error).message)
+        return NextResponse.json({ error: (updErr as Error).message }, { status: 500 })
       }
     }
 
-    // Try to insert a single aggregated item row (preferred)
     try {
       const { data, error } = await supabase
         .from('items')
-        .insert([{ id: crypto.randomUUID(), name: name.trim(), category: category.trim(), status: 'AVAILABLE', quantity: qty, created_at: now, updated_at: now }])
+        .insert([{
+          id: crypto.randomUUID(),
+          name: name.trim(),
+          category: category.trim(),
+          status: 'AVAILABLE',
+          quantity: qty,
+          created_at: now,
+          updated_at: now,
+        }])
         .select()
         .maybeSingle()
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
-      // create item_units for the new item
       try {
         const unitsToInsert = Array.from({ length: qty }).map(() => ({
           id: crypto.randomUUID(),
@@ -155,11 +141,8 @@ export async function POST(req: NextRequest) {
           created_at: now,
           updated_at: now,
         }))
-
         const { error: unitsErr } = await supabase.from('item_units').insert(unitsToInsert)
-        if (unitsErr) {
-          console.warn('Could not create item_units (table may be missing):', unitsErr.message)
-        }
+        if (unitsErr) console.warn('Could not create item_units:', unitsErr.message)
       } catch (uErr) {
         console.warn('item_units insertion skipped:', (uErr as Error).message)
       }
@@ -167,7 +150,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(data, { status: 201 })
     } catch (insertErr) {
       if (isMissingQuantityError(insertErr)) {
-        console.warn('Quantity column missing — falling back to per-unit inserts. Please run the Supabase migration to add `quantity`.')
+        console.warn('Quantity column missing — falling back to per-unit inserts.')
         const itemsToInsert = Array.from({ length: qty }).map(() => ({
           id: crypto.randomUUID(),
           name: name.trim(),
@@ -176,22 +159,12 @@ export async function POST(req: NextRequest) {
           created_at: now,
           updated_at: now,
         }))
-
-        const { data, error } = await supabase
-          .from('items')
-          .insert(itemsToInsert)
-          .select()
-
-        if (error) {
-          console.error('POST /api/items fallback insert error:', error.message)
-          return NextResponse.json({ error: error.message }, { status: 500 })
-        }
-
+        const { data, error } = await supabase.from('items').insert(itemsToInsert).select()
+        if (error) return NextResponse.json({ error: error.message }, { status: 500 })
         return NextResponse.json(data, { status: 201 })
       }
-
-      console.error('POST /api/items insert error:', (insertErr as Error).message ?? String(insertErr))
-      return NextResponse.json({ error: (insertErr as Error).message ?? String(insertErr) }, { status: 500 })
+      console.error('POST /api/items insert error:', (insertErr as Error).message)
+      return NextResponse.json({ error: (insertErr as Error).message }, { status: 500 })
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)

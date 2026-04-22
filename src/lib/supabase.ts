@@ -1,14 +1,15 @@
 import { createBrowserClient } from '@supabase/ssr'
 
-/** Browser client -- uses anon key, respects RLS.
- *  Guard creation so the module can be imported during server-side
- *  builds without requiring browser-only env values at eval time. */
-let _supabase: ReturnType<typeof createBrowserClient> | null = null
-if (typeof window !== 'undefined') {
-  _supabase = createBrowserClient(
+/** Singleton browser client — created once and reused.
+ *  Uses anon key and respects RLS.
+ *  Safe to import on the server (returns null outside browser). */
+export function getSupabaseBrowser() {
+  if (typeof window === 'undefined') return null
+  return createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   )
 }
 
-export const supabase = _supabase
+// Singleton instance for direct imports
+export const supabase = getSupabaseBrowser()
