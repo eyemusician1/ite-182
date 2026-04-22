@@ -31,11 +31,12 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession reads from cookie only — no network call, fast
+  const { data: { session } } = await supabase.auth.getSession()
 
   // Protect dashboard and API routes
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
-    if (!user) {
+    if (!session) {
       const loginUrl = new URL('/login', req.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)

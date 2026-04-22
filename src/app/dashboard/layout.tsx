@@ -1,13 +1,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { getUser } from '@/lib/get-user'
 import { UserMenu } from '@/components/dashboard/user-menu'
-import { SearchInput } from '@/components/dashboard/search-input' // FIXED IMPORT
+import { SearchInput } from '@/components/dashboard/search-input'
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const { user, error } = await getUser()
 
   if (!user || error || user.app_metadata?.role !== 'admin') {
     redirect('/login?error=unauthorized')

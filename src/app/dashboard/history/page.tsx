@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
+
+export const revalidate = 60
 
 interface BorrowLog {
   id: string
@@ -89,9 +90,6 @@ function getDuration(start: string, end: string | null) {
 export default async function HistoryPage() {
   const supabase = await createSupabaseServerClient()
 
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (!user || authError) redirect('/login')
-
   const { data: logs, error } = await supabase
     .from('borrow_logs')
     .select(`
@@ -148,7 +146,6 @@ export default async function HistoryPage() {
         <div className="p-10 rounded-[2rem] bg-rose-500/[0.03] border border-rose-500/10 flex flex-col justify-between min-h-[200px] relative overflow-hidden group hover:bg-rose-500/[0.05] transition-colors">
           <span className="text-[14px] font-medium text-rose-400/70 tracking-wider uppercase z-10">Overdue</span>
           <div className="text-7xl font-light tracking-tight mt-4 text-rose-300 z-10">{overdueLogs}</div>
-          {/* Glow effect scaled up to match larger card */}
           <div className="absolute -bottom-12 -right-12 w-48 h-48 bg-rose-500/5 blur-[50px] rounded-full pointer-events-none group-hover:bg-rose-500/10 transition-colors" />
         </div>
       </div>

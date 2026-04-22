@@ -3,6 +3,8 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { ItemsTable } from '@/components/dashboard/items-table'
 import { RealtimeListener } from '@/components/dashboard/realtime-listener'
 
+export const revalidate = 30
+
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
   const now = new Date().toISOString()

@@ -1,17 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 import { AddEquipmentDialog } from '@/components/dashboard/add-equipment-dialog'
 import { RealtimeListener } from '@/components/dashboard/realtime-listener'
-// Import the new EquipmentList component
 import { EquipmentList } from '@/components/dashboard/equipment-list'
+
+export const revalidate = 30
 
 export default async function ItemsManagementPage({ searchParams }: { searchParams?: Record<string, string | string[] | undefined> | undefined }) {
   const supabase = await createSupabaseServerClient()
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (!user || authError || user.app_metadata?.role !== 'admin') {
-    redirect('/login?error=unauthorized')
-  }
 
   const sp = await searchParams
   const rawSearch = sp?.search ?? ''
@@ -20,7 +15,6 @@ export default async function ItemsManagementPage({ searchParams }: { searchPara
 
   let query = supabase.from('items').select('*')
   if (search) {
-    // filter by name or category using case-insensitive LIKE
     const escaped = search.replace(/%/g, '\\%')
     query = query.or(`name.ilike.%${escaped}%,category.ilike.%${escaped}%`)
   }
@@ -52,7 +46,6 @@ export default async function ItemsManagementPage({ searchParams }: { searchPara
         </div>
 
         <div className="w-full overflow-x-auto">
-          {/* Delegate rendering to the client component */}
           <EquipmentList items={items || []} />
         </div>
       </div>
