@@ -5,14 +5,11 @@ import type { User } from '@supabase/supabase-js'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
-  const safePath = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
-
-  console.log('[auth/callback] incoming URL:', request.url)
-  console.log('[auth/callback] code:', code, 'next:', next)
+  const rawNext = searchParams.get('next') ?? '/dashboard'
+  const safePath = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/dashboard'
 
   if (!code) {
-    return NextResponse.redirect(`${origin}/login`)
+    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
   const response = NextResponse.redirect(`${origin}${safePath}`)
@@ -27,21 +24,14 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Ensure cookies set during OAuth callback are sent on the
-            // first post-redirect navigation. In production (HTTPS) we
-            // require SameSite=None and Secure so cross-site redirects
-            // include the cookie. For local dev keep Lax to avoid
-            // Secure requirement.
-            const secure = typeof options?.secure === 'boolean' ? options.secure : (process.env.NODE_ENV === 'production')
-            const sameSite = options?.sameSite ?? (secure ? 'none' : 'lax')
-            const path = options?.path ?? '/'
-
+            const secure = process.env.NODE_ENV === 'production'
+            const sameSite = secure ? 'none' : 'lax'
             response.cookies.set(name, value, {
               ...options,
-              sameSite,
-              httpOnly: options?.httpOnly ?? true,
+              httpOnly: true,
               secure,
-              path,
+              sameSite,
+              path: '/',
             })
           })
         },
@@ -53,28 +43,17 @@ export async function GET(request: NextRequest) {
 
   if (exchangeError) {
     console.error('exchangeCodeForSession error:', exchangeError.message)
-    return NextResponse.redirect(`${origin}/login`)
+    return NextResponse.redirect(`${origin}/login?error=auth_failed`)
   }
 
-  console.log('[auth/callback] exchangeData:', JSON.stringify(exchangeData))
-
-  // Prefer the user returned in the exchange response (no cookie needed).
   let user: User | null = exchangeData?.session?.user ?? null
-
-  // Fallback: try reading via getUser() if exchange didn't return a user.
   if (!user) {
     const { data } = await supabase.auth.getUser()
     user = data.user ?? null
   }
 
-  console.log('[auth/callback] resolved user id:', user?.id)
-
   if (user?.app_metadata?.role !== 'admin') {
-    try {
-      await supabase.auth.signOut()
-    } catch (err) {
-      console.warn('signOut failed:', (err as Error).message)
-    }
+    try { await supabase.auth.signOut() } catch {}
     return NextResponse.redirect(`${origin}/login?error=unauthorized`)
   }
 

@@ -5,15 +5,12 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  // The `/auth/confirm` page (app/auth/confirm/page.tsx) performs a
-  // server-side redirect to `/api/auth/callback`. Avoid rewriting here
-  // so the page can run and set the proper cookies via the callback.
-
-  // Skip static assets, auth routes
+  // Skip static assets, all auth routes, and all api/auth routes
   if (
     pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth') ||
     pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/auth') ||
+    pathname.startsWith('/login') ||
     pathname.includes('.')
   ) {
     return NextResponse.next()
@@ -37,15 +34,19 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  // Use getUser() — makes a network call but is the only truly reliable
-  // way to verify the session is valid, especially right after OAuth callback
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
+  // Protect dashboard routes only
+  if (pathname.startsWith('/dashboard')) {
     if (!user) {
       const loginUrl = new URL('/login', req.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
+    }
+
+    // Block non-admins at middleware level too
+    if (user.app_metadata?.role !== 'admin') {
+      return NextResponse.redirect(new URL('/login?error=unauthorized', req.url))
     }
   }
 
@@ -53,5 +54,6 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*', '/auth/:path*'],
+  // Only run on dashboard routes — NOT on /api or /auth
+  matcher: ['/dashboard/:path*'],
 }
