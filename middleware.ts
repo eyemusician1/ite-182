@@ -5,10 +5,15 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  // The `/auth/confirm` page (app/auth/confirm/page.tsx) performs a
+  // server-side redirect to `/api/auth/callback`. Avoid rewriting here
+  // so the page can run and set the proper cookies via the callback.
+
+  // Skip static assets, auth routes
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/auth') ||
-    pathname.startsWith('/auth') ||   // exclude /auth/confirm from protection
+    pathname.startsWith('/auth') ||
     pathname.includes('.')
   ) {
     return NextResponse.next()
@@ -32,10 +37,12 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  // Use getUser() — makes a network call but is the only truly reliable
+  // way to verify the session is valid, especially right after OAuth callback
+  const { data: { user } } = await supabase.auth.getUser()
 
   if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
-    if (!session) {
+    if (!user) {
       const loginUrl = new URL('/login', req.url)
       loginUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(loginUrl)
@@ -46,5 +53,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/api/:path*'],
+  matcher: ['/dashboard/:path*', '/api/:path*', '/auth/:path*'],
 }

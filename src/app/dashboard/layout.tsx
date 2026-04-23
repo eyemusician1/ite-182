@@ -8,16 +8,15 @@ import { SearchInput } from '@/components/dashboard/search-input'
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient()
 
-  // getSession reads from cookie only — no network call, instant
-  // Security is enforced by middleware + the callback route which checks app_metadata
-  const { data: { session } } = await supabase.auth.getSession()
+  // Use getUser() — reliable server-side session verification
+  // This is called after middleware already confirmed auth, so the
+  // extra network call here is just a safety net for the layout
+  const { data: { user }, error } = await supabase.auth.getUser()
 
-  if (!session) {
+  if (!user || error) {
     redirect('/login')
   }
 
-  // User data comes from the session token — still no network call
-  const user = session.user
   const fullName = user.user_metadata?.full_name as string | undefined
   const email = user.email ?? ''
   const avatarUrl = user.user_metadata?.avatar_url as string | undefined

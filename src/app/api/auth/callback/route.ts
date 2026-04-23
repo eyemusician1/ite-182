@@ -7,15 +7,14 @@ export async function GET(request: NextRequest) {
   const next = searchParams.get('next') ?? '/dashboard'
   const safePath = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard'
 
+  console.log('[auth/callback] incoming URL:', request.url)
+  console.log('[auth/callback] code:', code, 'next:', next)
+
   if (!code) {
     return NextResponse.redirect(`${origin}/login`)
   }
 
-  // Redirect to a lightweight confirm page that will forward to the dashboard.
-  // This gives the browser a chance to fully commit the session cookies before
-  // the dashboard layout tries to read them — fixes the double-login race condition.
-  const confirmUrl = `${origin}/auth/confirm?next=${encodeURIComponent(safePath)}`
-  const response = NextResponse.redirect(confirmUrl)
+  const response = NextResponse.redirect(`${origin}${safePath}`)
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,7 +26,14 @@ export async function GET(request: NextRequest) {
         },
         setAll(cookiesToSet) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options)
+            // Write cookies only to the redirect response so the browser
+            // receives the session on the first redirect.
+            response.cookies.set(name, value, {
+              ...options,
+              sameSite: options?.sameSite ?? 'lax',
+              httpOnly: options?.httpOnly ?? true,
+              secure: typeof options?.secure === 'boolean' ? options.secure : (process.env.NODE_ENV === 'production'),
+            })
           })
         },
       },
