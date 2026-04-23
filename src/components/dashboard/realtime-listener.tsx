@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { mutate } from 'swr'
 
 export function RealtimeListener() {
   const router = useRouter()
@@ -16,6 +17,10 @@ export function RealtimeListener() {
     const refresh = () => {
       if (timerRef.current) clearTimeout(timerRef.current)
       timerRef.current = setTimeout(() => {
+        // Immediately revalidate SWR keys used by the dashboard so client components update fast
+        void mutate('/api/items')
+        void mutate('/api/borrow')
+        // Keep router.refresh to update any server-rendered parts as a fallback
         router.refresh()
       }, 300)
     }
