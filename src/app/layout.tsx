@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { SWRProvider } from '@/components/shared/swr-provider'
+import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
   title: 'Inventory',
@@ -18,6 +19,7 @@ export default function RootLayout({
         <SWRProvider>
           {children}
         </SWRProvider>
+        <Toaster position="bottom-right" richColors />
       </body>
     </html>
   )

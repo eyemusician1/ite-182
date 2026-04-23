@@ -1,6 +1,6 @@
 'use client'
 
-import { useItems } from '@/hooks/use-dashboard-data'
+import { useItems, Item } from '@/hooks/use-dashboard-data'
 import { AddEquipmentDialog } from '@/components/dashboard/add-equipment-dialog'
 import { RealtimeListener } from '@/components/dashboard/realtime-listener'
 import { EquipmentList } from '@/components/dashboard/equipment-list'
@@ -8,7 +8,7 @@ import { EquipmentList } from '@/components/dashboard/equipment-list'
 export default function ItemsManagementPage() {
   const { items, isLoading, mutate } = useItems()
 
-  const totalAssets = items.reduce((s: number, it: { quantity?: number }) => s + (it.quantity || 1), 0)
+  const totalAssets = items.reduce((s: number, it: Item) => s + (it.quantity || 1), 0)
 
   return (
     <div className="animate-in fade-in duration-300" style={{ fontFamily: "'Google Sans', Roboto, sans-serif" }}>
@@ -19,7 +19,8 @@ export default function ItemsManagementPage() {
           <h1 className="text-[2.5rem] leading-tight font-medium tracking-tight mb-2 text-white">Equipment Database</h1>
           <p className="text-gray-400 text-xl font-light">Manage and track your entire laboratory inventory.</p>
         </div>
-        <AddEquipmentDialog onSuccess={() => mutate()} />
+        {/* Pass mutate so dialog can do optimistic add */}
+        <AddEquipmentDialog mutate={mutate} />
       </div>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.02] overflow-hidden flex flex-col shadow-2xl">
@@ -34,7 +35,8 @@ export default function ItemsManagementPage() {
           {isLoading ? (
             <div className="p-16 text-center text-gray-500 font-light">Loading equipment...</div>
           ) : (
-            <EquipmentList items={items} onMutate={() => mutate()} />
+            // Pass mutate so item actions can do optimistic edit/delete
+            <EquipmentList items={items} mutate={mutate} />
           )}
         </div>
       </div>

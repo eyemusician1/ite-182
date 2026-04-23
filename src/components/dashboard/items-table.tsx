@@ -67,7 +67,7 @@ export function ItemsTable({ isLoading: parentLoading }: { isLoading?: boolean }
           </tr>
         </thead>
         <tbody className="text-gray-300">
-          {recent.map((item: Item) => (
+          {recent.map((item) => (
             <tr key={item.id} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors group">
               <td className="px-8 py-5 text-white font-medium text-[15px]">{item.name}</td>
               <td className="px-6 py-5 font-light text-[15px]">{item.category}</td>

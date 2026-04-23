@@ -2,16 +2,8 @@
 
 import { useState } from 'react'
 import { ItemActions } from '@/components/dashboard/item-actions'
-
-interface Item {
-  id: string
-  name: string
-  category: string
-  status: 'AVAILABLE' | 'BORROWED' | 'MAINTENANCE'
-  quantity?: number
-  created_at?: string
-  updated_at?: string
-}
+import { Item } from '@/hooks/use-dashboard-data'
+import { KeyedMutator } from 'swr'
 
 interface Group {
   key: string
@@ -24,7 +16,7 @@ interface Group {
   items: Item[]
 }
 
-export function EquipmentList({ items, onMutate }: { items: Item[]; onMutate?: () => void }) {
+export function EquipmentList({ items, mutate }: { items: Item[]; mutate: KeyedMutator<Item[]> }) {
   const groupedItems = items.reduce<Record<string, Group>>((acc, item) => {
     const key = `${item.name}-${item.category}`
     if (!acc[key]) {
@@ -46,9 +38,7 @@ export function EquipmentList({ items, onMutate }: { items: Item[]; onMutate?: (
   if (!items || items.length === 0) {
     return (
       <table className="w-full text-left border-collapse">
-        <tbody className="text-gray-300">
-          <tr><td colSpan={5} className="p-16 text-center text-gray-500 font-light text-xl">No equipment found in the database.</td></tr>
-        </tbody>
+        <tbody><tr><td colSpan={5} className="p-16 text-center text-gray-500 font-light text-xl">No equipment found in the database.</td></tr></tbody>
       </table>
     )
   }
@@ -64,7 +54,6 @@ export function EquipmentList({ items, onMutate }: { items: Item[]; onMutate?: (
           <th className="px-10 py-6 font-normal text-right">Actions</th>
         </tr>
       </thead>
-
       {groups.map((group) => {
         const isExpanded = expandedGroups[group.key]
         return (
@@ -100,7 +89,6 @@ export function EquipmentList({ items, onMutate }: { items: Item[]; onMutate?: (
                 {isExpanded ? 'Collapse' : 'Expand Details'}
               </td>
             </tr>
-
             {isExpanded && group.items.map((item) => (
               <tr key={item.id} className="bg-black/20 border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                 <td className="px-10 py-5 pl-[4.5rem] flex items-center gap-3">
@@ -117,7 +105,7 @@ export function EquipmentList({ items, onMutate }: { items: Item[]; onMutate?: (
                   }`}>{item.status}</span>
                 </td>
                 <td className="px-10 py-5 text-right">
-                  <ItemActions item={item} onMutate={onMutate} />
+                  <ItemActions item={item} mutate={mutate} />
                 </td>
               </tr>
             ))}

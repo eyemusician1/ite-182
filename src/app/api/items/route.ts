@@ -12,7 +12,7 @@ export async function GET() {
   const supabase = await createSupabaseServerClient()
   const { data: items, error } = await supabase
     .from('items')
-    .select('id, name, category, status, quantity, created_at, updated_at') // only needed columns
+    .select('id, name, category, status, quantity, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -20,13 +20,10 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json(items, {
-    status: 200,
-    headers: {
-      // Cache for 30s on CDN edge, allow stale for 10s while revalidating
-      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=10',
-    },
-  })
+  // No cache header — SWR handles caching client-side.
+  // A server cache-control header here was causing mutate() to receive
+  // stale data, making optimistic updates appear broken.
+  return NextResponse.json(items, { status: 200 })
 }
 
 export async function POST(req: NextRequest) {
@@ -54,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const { data: existing, error: selectErr } = await supabase
       .from('items')
-      .select('id, quantity')  // only needed columns
+      .select('id, quantity')
       .eq('name', name.trim())
       .eq('category', category.trim())
       .maybeSingle()
@@ -98,7 +95,6 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(updated, { status: 200 })
       } catch (updErr) {
         if (isMissingQuantityError(updErr)) {
-          console.warn('Quantity column missing — falling back to per-unit inserts.')
           const itemsToInsert = Array.from({ length: qty }).map(() => ({
             id: crypto.randomUUID(),
             name: name.trim(),
@@ -150,7 +146,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(data, { status: 201 })
     } catch (insertErr) {
       if (isMissingQuantityError(insertErr)) {
-        console.warn('Quantity column missing — falling back to per-unit inserts.')
         const itemsToInsert = Array.from({ length: qty }).map(() => ({
           id: crypto.randomUUID(),
           name: name.trim(),
