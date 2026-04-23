@@ -5,6 +5,16 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
+  // Debug: log cookie names for auth-protected routes to diagnose
+  // Chrome-specific issues where cookies aren't sent on first redirect.
+  if (pathname.startsWith('/dashboard') || pathname.startsWith('/api')) {
+    try {
+      const names = req.cookies.getAll().map(c => c.name).join(', ')
+      console.log('[middleware] request path:', pathname, 'cookies:', names)
+    } catch (err) {
+      console.warn('[middleware] could not read cookies for logging:', (err as Error).message)
+    }
+  }
   // Skip static assets, all auth routes, and all api/auth routes
   if (
     pathname.startsWith('/_next') ||

@@ -57,13 +57,22 @@ export function AddEquipmentDialog({ mutate }: Props) {
       const body = await res.json().catch(() => ({}))
 
       if (!res.ok) {
-        await mutate() // revert
+        // revert optimistic update
+        await mutate()
         toast.error(body.error ?? 'Failed to add equipment.', { id: toastId })
         setError(body.error ?? 'Failed to register equipment.')
         setOpen(true)
       } else {
-        await mutate() // confirm with real data
-        toast.success(`${name} added successfully!`, { id: toastId })
+        // try to revalidate but don't allow a failure here to leave the
+        // loading toast stuck — always finalize the toast below.
+        try {
+          await mutate()
+          toast.success(`${name} added successfully!`, { id: toastId })
+        } catch (revalErr) {
+          console.warn('Revalidation after add failed:', (revalErr as Error).message)
+          // Still show success because server reported OK, but log the issue.
+          toast.success(`${name} added (pending refresh)`, { id: toastId })
+        }
       }
     } catch (err) {
       await mutate()

@@ -17,6 +17,7 @@ interface RawItem {
 export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMutator<Item[]> }) {
   const [isQrOpen, setIsQrOpen] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [qrUnitId, setQrUnitId] = useState<string>(item.id)
 
   useEffect(() => {
     let mounted = true
@@ -26,7 +27,28 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
         // dynamic import to avoid SSR issues
         const QR = await import('qrcode')
         const origin = typeof location !== 'undefined' ? location.origin : ''
-        const url = `${origin}/scan/${item.id}`
+
+        // Ask the server for a preferred unit id for this item (admin-protected).
+        let unitId = item.id
+        try {
+          const res = await fetch(`/api/items/${item.id}/unit`, { credentials: 'include' })
+          if (res.ok) {
+            const body = await res.json().catch(() => ({}))
+            if (body && body.unitId) unitId = body.unitId
+          } else {
+            console.warn('Unit endpoint returned', res.status)
+          }
+        } catch (fetchErr) {
+          console.warn('Could not fetch unit id for QR generation:', (fetchErr as Error).message)
+        }
+
+        // store the unit id used for this QR so download/copy use the same value
+        if (mounted) setQrUnitId(unitId)
+
+        // Ensure we encode an absolute URL (some scanners ignore paths)
+        const originSafe = (typeof location !== 'undefined' && location.origin) ? location.origin : ''
+        const url = `${originSafe}/scan/${unitId}`
+        console.log('[QR] encoding URL:', url)
         const dataUrl = await QR.toDataURL(url, { width: 400 })
         if (mounted) setQrDataUrl(dataUrl)
       } catch (err) {
@@ -81,8 +103,13 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
       toast.error(error ?? 'Failed to save changes.', { id: toastId })
       setIsEditOpen(true)
     } else {
-      await mutate() // confirm
-      toast.success('Equipment updated successfully!', { id: toastId })
+      try {
+        await mutate() // confirm
+        toast.success('Equipment updated successfully!', { id: toastId })
+      } catch (revalErr) {
+        console.warn('Revalidation after edit failed:', (revalErr as Error).message)
+        toast.success('Equipment updated (pending refresh)', { id: toastId })
+      }
     }
 
     setIsLoading(false)
@@ -121,8 +148,13 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
         const { error } = await res.json().catch(() => ({}))
         toast.error(error ?? 'Failed to delete equipment.', { id: toastId })
       } else {
-        await mutate() // confirm
-        toast.success(`${label} deleted.`, { id: toastId })
+        try {
+          await mutate() // confirm
+          toast.success(`${label} deleted.`, { id: toastId })
+        } catch (revalErr) {
+          console.warn('Revalidation after delete failed:', (revalErr as Error).message)
+          toast.success(`${label} deleted (pending refresh)`, { id: toastId })
+        }
       }
     } catch (err) {
       await mutate()
@@ -242,9 +274,9 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
             </div>
 
             <div className="mt-4 flex items-center justify-center gap-3">
-              <a href={qrDataUrl ?? '#'} download={`qr-${item.id}.png`} className="px-4 py-2 bg-white text-[#0a0d27] rounded-full font-medium hover:bg-gray-200">Download</a>
+              <a href={qrDataUrl ?? '#'} download={`qr-${qrUnitId}.png`} className="px-4 py-2 bg-white text-[#0a0d27] rounded-full font-medium hover:bg-gray-200">Download</a>
               <button onClick={() => {
-                const url = `${typeof location !== 'undefined' ? location.origin : ''}/scan/${item.id}`
+                const url = `${typeof location !== 'undefined' ? location.origin : ''}/scan/${qrUnitId}`
                 navigator.clipboard?.writeText(url)
                 toast.success('Scan URL copied to clipboard')
               }} className="px-4 py-2 bg-white/5 text-white rounded-full font-medium hover:bg-white/10">Copy link</button>
