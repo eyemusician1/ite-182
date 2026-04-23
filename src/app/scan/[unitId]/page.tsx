@@ -1,5 +1,6 @@
 import { createSupabaseAdminClient } from '@/lib/supabase-admin'
 import { BorrowForm } from '@/components/borrower/borrow-form'
+import { BorrowerUI } from '@/components/borrower/borrow-ui'
 import { ItemStatusCard } from '@/components/borrower/item-status-card'
 import { ReturnButton } from '@/components/borrower/return-button'
 
@@ -97,7 +98,8 @@ export default async function ScanPage({ params }: { params: { unitId: string } 
 
         <div className="mt-8">
           {item.status === 'AVAILABLE' && (
-            <BorrowForm itemId={item.id} itemName={item.name} />
+            // Use a simplified borrower UI optimized for QR flows
+            <BorrowerUI itemId={item.id} itemName={item.name} />
           )}
 
           {item.status === 'BORROWED' && activeLog && (

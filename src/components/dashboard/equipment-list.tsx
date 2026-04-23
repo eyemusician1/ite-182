@@ -85,8 +85,23 @@ export function EquipmentList({ items, mutate }: { items: Item[]; mutate: KeyedM
                   </span>
                 )}
               </td>
-              <td className="px-10 py-6 text-right text-sm text-indigo-400/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                {isExpanded ? 'Collapse' : 'Expand Details'}
+              <td className="px-10 py-6 text-right text-sm text-indigo-400/70 font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-end gap-3">
+                {group.items && group.items.length > 0 && (
+                  <a
+                    href={`/scan/${group.items[0].id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="inline-flex items-center gap-2 px-3 py-2 bg-white/5 rounded-full text-sm text-white hover:bg-white/10">
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                    </svg>
+                    <span className="hidden md:inline">Scan</span>
+                  </a>
+                )}
+                <span>{isExpanded ? 'Collapse' : 'Expand Details'}</span>
               </td>
             </tr>
             {isExpanded && group.items.map((item) => (

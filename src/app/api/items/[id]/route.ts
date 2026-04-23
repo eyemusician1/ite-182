@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-async function verifyAuth(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>) {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
-  return user
-}
+import { getUser } from '@/lib/get-user'
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const supabase = await createSupabaseServerClient()
-  const user = await verifyAuth(supabase)
-
-  if (!user) {
+  const { user, error: authError } = await getUser()
+  if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -130,6 +124,49 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err)
     console.error('DELETE /api/items/[id] unexpected error:', message)
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const supabase = await createSupabaseServerClient()
+  const { user, error: authError } = await getUser()
+  if (authError || !user || user.app_metadata?.role !== 'admin') {
+    return NextResponse.json({ error: 'Unauthorized: Admin required' }, { status: 401 })
+  }
+
+  const p = await params
+  const id = p?.id
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+
+  try {
+    const body = await req.json().catch(() => ({}))
+    const updates: Record<string, unknown> = {}
+    if (typeof body.name === 'string') updates.name = body.name.trim()
+    if (typeof body.category === 'string') updates.category = body.category.trim()
+    if (typeof body.status === 'string') updates.status = body.status
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
+    }
+
+    updates.updated_at = new Date().toISOString()
+
+    const { data, error } = await supabase
+      .from('items')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .maybeSingle()
+
+    if (error) {
+      console.error('PATCH /api/items/[id] error:', error.message)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json(data, { status: 200 })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.error('PATCH /api/items/[id] unexpected error:', message)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }

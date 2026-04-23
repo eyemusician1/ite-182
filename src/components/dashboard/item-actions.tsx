@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import { Item } from '@/hooks/use-dashboard-data'
 import { KeyedMutator } from 'swr'
@@ -15,6 +15,29 @@ interface RawItem {
 }
 
 export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMutator<Item[]> }) {
+  const [isQrOpen, setIsQrOpen] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+
+  useEffect(() => {
+    let mounted = true
+    async function gen() {
+      if (!isQrOpen) return
+      try {
+        // dynamic import to avoid SSR issues
+        const QR = await import('qrcode')
+        const origin = typeof location !== 'undefined' ? location.origin : ''
+        const url = `${origin}/scan/${item.id}`
+        const dataUrl = await QR.toDataURL(url, { width: 400 })
+        if (mounted) setQrDataUrl(dataUrl)
+      } catch (err) {
+        console.error('Failed to generate QR code', err)
+        if (mounted) setQrDataUrl(null)
+      }
+    }
+
+    gen()
+    return () => { mounted = false }
+  }, [isQrOpen, item.id])
   const [isEditOpen, setIsEditOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -22,6 +45,13 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
   const [name, setName] = useState(item.name)
   const [category, setCategory] = useState(item.category)
   const [status, setStatus] = useState(item.status)
+
+  useEffect(() => {
+    // keep local form state in sync if the parent item changes
+    setName(item.name)
+    setCategory(item.category)
+    setStatus(item.status)
+  }, [item.id, item.name, item.category, item.status])
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -106,6 +136,15 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
     <div className="flex justify-end items-center gap-4">
       <button onClick={() => setIsEditOpen(true)} className="text-gray-400 hover:text-white transition-colors text-sm font-medium tracking-wide">Edit</button>
       <button onClick={() => setIsDeleteOpen(true)} className="text-red-400/70 hover:text-red-400 transition-colors text-sm font-medium tracking-wide">Delete</button>
+      <button onClick={() => setIsQrOpen(true)} title="Show QR code" className="text-gray-300 hover:text-white transition-colors text-sm font-medium tracking-wide flex items-center gap-2">
+        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <path d="M7 14h3v3H7zM3 10h7" />
+        </svg>
+        <span className="hidden md:inline">QR</span>
+      </button>
 
       {isEditOpen && (
         <div className="fixed inset-0 bg-[#0a0d27]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 text-left">
@@ -185,6 +224,34 @@ export function ItemActions({ item, mutate }: { item: RawItem; mutate: KeyedMuta
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isQrOpen && (
+        <div className="fixed inset-0 bg-[#0a0d27]/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-[#0a0d27]/95 backdrop-blur-2xl border border-white/10 rounded-[2rem] w-full max-w-sm shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden p-6 text-center">
+            <h3 className="text-xl font-medium text-white mb-4">QR Code — {item.name}</h3>
+            <div className="bg-white/3 p-4 rounded-lg inline-block">
+              {qrDataUrl ? (
+                <img src={qrDataUrl} alt={`QR for ${item.name}`} className="w-56 h-56 object-contain" />
+              ) : (
+                <div className="w-56 h-56 flex items-center justify-center text-gray-400">Generating...</div>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <a href={qrDataUrl ?? '#'} download={`qr-${item.id}.png`} className="px-4 py-2 bg-white text-[#0a0d27] rounded-full font-medium hover:bg-gray-200">Download</a>
+              <button onClick={() => {
+                const url = `${typeof location !== 'undefined' ? location.origin : ''}/scan/${item.id}`
+                navigator.clipboard?.writeText(url)
+                toast.success('Scan URL copied to clipboard')
+              }} className="px-4 py-2 bg-white/5 text-white rounded-full font-medium hover:bg-white/10">Copy link</button>
+            </div>
+
+            <div className="mt-4">
+              <button onClick={() => setIsQrOpen(false)} className="px-6 py-2 rounded-full text-sm font-medium text-gray-400 hover:text-white hover:bg-white/5">Close</button>
             </div>
           </div>
         </div>
